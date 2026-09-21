@@ -337,6 +337,12 @@ canvas#board{touch-action:none;}
 @media(max-width:600px) and (max-height:520px){.grapher-panel.open{grid-template-columns:1fr;grid-template-rows:40px minmax(0,42%) minmax(0,1fr) auto;}.gp-controls{grid-column:1;grid-row:2;}.gp-body{grid-column:1;grid-row:3;}.gp-keyboard{grid-row:4;max-height:42vh;}}
 @media(max-width:360px){.brand .meta,.brand .sep{display:none;}.gp-viewtools{gap:3px;right:6px;top:6px;}.gp-viewtools button{padding:6px 8px;}}
 
+
+  #session-bar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:9px;background:#152039ed;color:#fff;padding:8px 12px;border:1px solid #ffffff25;border-radius:12px;font:12px system-ui;box-shadow:0 3px 16px #0003;max-width:calc(100vw - 24px);}
+  #session-bar button{color:#fff;background:#ffffff15;border:1px solid #ffffff25;border-radius:7px;padding:8px;white-space:nowrap;cursor:pointer;font:inherit;min-height:36px;}
+  #session-status{min-width:130px;max-width:250px;}
+  #session-loading{position:fixed;inset:0;z-index:99999;background:#152039ed;color:white;display:grid;place-items:center;font:16px system-ui;}
+  @media(max-width:650px){#session-bar{gap:5px;padding:6px;flex-wrap:wrap;justify-content:center;width:max-content;bottom:5px;}#session-status{flex-basis:100%;text-align:center;max-width:none;}#session-bar button{font-size:11px;}}
 </style>
 </head>
 <body>
@@ -650,6 +656,7 @@ canvas#board{touch-action:none;}
 
 <script>
 (() => {
+  let sessionReady=false;
   const stage  = document.getElementById('stage');
   const canvas = document.getElementById('board');
   const ctx    = canvas.getContext('2d');
@@ -1112,8 +1119,8 @@ canvas#board{touch-action:none;}
 
   /* ══════ Historial ══════ */
   let history=[], hIndex=-1;
-  function pushHistory(){ history=history.slice(0,hIndex+1); history.push(JSON.stringify({strokes, images})); if(history.length>70) history.shift(); hIndex=history.length-1; }
-  function restore(i){ const st=JSON.parse(history[i]); strokes=st.strokes||[]; images=st.images||[]; clearSel(); imgAction=null; marquee=null; render(); }
+  function pushHistory(){ history=history.slice(0,hIndex+1); history.push(JSON.stringify({strokes, images})); if(history.length>70) history.shift(); hIndex=history.length-1; if(sessionReady)persistSession(); }
+  function restore(i){ const st=JSON.parse(history[i]); strokes=st.strokes||[]; images=st.images||[]; clearSel(); imgAction=null; marquee=null; render(); if(sessionReady)persistSession(); }
   function undo(){ if(hIndex>0){ hIndex--; restore(hIndex); } }
   function redo(){ if(hIndex<history.length-1){ hIndex++; restore(hIndex); } }
 
@@ -1800,7 +1807,7 @@ canvas#board{touch-action:none;}
   }
   let suppressPaste=false;
   window.addEventListener('beforeunload', e=>{
-    if(strokes.length || images.length){ e.preventDefault(); e.returnValue=''; return ''; }
+    if((strokes.length || images.length) && (!sessionReady || saveTimer || savedRevision<saveRevision)){ e.preventDefault(); e.returnValue=''; return ''; }
   });
   window.addEventListener('paste', e=>{
     if(suppressPaste){ suppressPaste=false; return; }
@@ -3104,9 +3111,137 @@ canvas#board{touch-action:none;}
   scrollSidebar.querySelectorAll('.tool').forEach(el=>{const tip=el.querySelector('.tip');if(tip)el.title=tip.textContent;});
   scrollSidebar.addEventListener('scroll',closePopovers,{passive:true});
 
+  /* SESSION_STORE_START */
+  // IndexedDB holds large sessions (including PDF pages). localStorage is the
+  // synchronous emergency checkpoint and fallback when IndexedDB is denied.
+  function createSessionStore(key){
+    let db=null;
+    const emergency=key+':emergency';
+    function readLocal(){const raw=localStorage.getItem(emergency);return raw?JSON.parse(raw):null;}
+    function checkpoint(data){try{localStorage.setItem(emergency,JSON.stringify(data));return true;}catch(_){return false;}}
+    async function load(){
+      let local=null,localError=null;
+      try{local=readLocal();}catch(e){localError=e;}
+      try{
+        db=await new Promise((resolve,reject)=>{
+          const request=indexedDB.open('cm-pizarra-sessions',1);
+          const timer=setTimeout(()=>reject(Error('Tiempo de espera agotado')),4000);
+          request.onupgradeneeded=()=>request.result.createObjectStore('sessions');
+          request.onsuccess=()=>{clearTimeout(timer);resolve(request.result);};
+          request.onerror=()=>{clearTimeout(timer);reject(request.error);};
+          request.onblocked=()=>{clearTimeout(timer);reject(Error('Almacenamiento ocupado'));};
+        });
+        db.onversionchange=()=>{db.close();db=null;};
+      }catch(_){if(localError)throw localError;return local;}
+      const saved=await new Promise((resolve,reject)=>{
+        const tx=db.transaction('sessions','readonly');
+        const req=tx.objectStore('sessions').get(key);
+        tx.oncomplete=()=>resolve(req.result||null);
+        tx.onabort=()=>reject(tx.error||Error('No se pudo leer la sesión'));
+      });
+      if(localError&&!saved)throw localError;
+      return local&&(!saved||local.savedAt>saved.savedAt)?local:saved;
+    }
+    async function save(data){
+      if(!db)return checkpoint(data);
+      try{
+        await new Promise((resolve,reject)=>{
+          const tx=db.transaction('sessions','readwrite');
+          tx.objectStore('sessions').put(data,key);
+          tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error||Error('No se pudo guardar'));
+        });
+        try{const local=readLocal();if(local&&local.savedAt<=data.savedAt)localStorage.removeItem(emergency);}catch(_){}
+        return true;
+      }catch(_){return checkpoint(data);}
+    }
+    return {load,save,checkpoint};
+  }
+  /* SESSION_STORE_END */
+
+  const sessionStore=createSessionStore('cm-pizarra-v1:'+location.pathname);
+  let saveRevision=0, savedRevision=0, saveTimer=0, lastSaveTime=0;
+  const saveBar=document.createElement('div'); saveBar.id='session-bar';
+  saveBar.innerHTML='<span id="session-status" role="status" aria-live="polite">Recuperando sesión…</span><button id="session-download" type="button">Descargar respaldo</button><button id="session-open" type="button">Abrir respaldo</button><input id="session-file" type="file" accept=".json,application/json" hidden>';
+  document.body.append(saveBar);
+  const sessionStatus=document.getElementById('session-status');
+  function sessionMessage(text,failed=false){sessionStatus.textContent=text;sessionStatus.style.color=failed?'#ffb4a8':'#c9ead8';}
+  function snapshotSession(){
+    const used={};for(const im of images)used[im.id]=imgStore[im.id];
+    lastSaveTime=Math.max(Date.now(),lastSaveTime+1);
+    return {version:1,savedAt:lastSaveTime,strokes:current&&current.pts.length?[...strokes,current]:strokes,
+      images,imgStore:used,nextImgId,orient,cam:{...cam},gridType,pageBg,showHF,hfSection,
+      ink,penStyle,sizes:{...sizes},inkSmoothing,ignoreTouches,
+      graph:{gfns:gfns.map(({raw,color,dom,hidden})=>({raw,color,dom,hidden})),PARAMS:{...PARAMS},gview:{...gview}}};
+  }
+  function validateSession(s){
+    if(!s||s.version!==1||!Array.isArray(s.strokes)||!Array.isArray(s.images)||!s.imgStore)throw Error('Respaldo incompatible');
+    const finite=Number.isFinite;
+    if(!s.strokes.every(t=>t&&Array.isArray(t.pts)&&t.pts.length&&t.pts.every(p=>p&&finite(p.x)&&finite(p.y))))throw Error('Trazos inválidos');
+    if(!s.images.every(im=>im&&typeof im.id==='string'&&[im.x,im.y,im.w,im.h].every(finite)&&im.w>0&&im.h>0&&typeof s.imgStore[im.id]==='string'&&/^data:image\//.test(s.imgStore[im.id])))throw Error('Imágenes inválidas');
+    if(s.graph&&(!Array.isArray(s.graph.gfns)||!s.graph.gfns.every(g=>g&&typeof g.raw==='string')))throw Error('Funciones inválidas');
+    return s;
+  }
+  function applySession(s){
+    validateSession(s);cancelDraw();clearSel();imgAction=null;marquee=null;polyBuild=null;
+    strokes=s.strokes;images=s.images;imgCache.clear();
+    for(const k of Object.keys(imgStore))delete imgStore[k];
+    for(const im of images)imgStore[im.id]=s.imgStore[im.id];
+    nextImgId=Math.max(1,Number(s.nextImgId)||1,...images.map(im=>(parseInt(im.id.replace(/^img/,''),10)||0)+1));
+    orient=s.orient==='landscape'?'landscape':'portrait';
+    gridType=['dots','squares','lines','none'].includes(s.gridType)?s.gridType:'dots';
+    pageBg=s.pageBg||'#ffffff';showHF=s.showHF!==false;hfSection=s.hfSection||'';hfInput.value=hfSection;
+    if(s.sizes)for(const k of Object.keys(sizes))if(Number.isFinite(s.sizes[k])&&s.sizes[k]>0)sizes[k]=s.sizes[k];
+    penStyle=s.penStyle||'boligrafo';setInk(s.ink||'#17202e');setInkSmoothing(s.inkSmoothing??45);
+    ignoreTouches=!!s.ignoreTouches;document.getElementById('ink-only-pen').checked=ignoreTouches;
+    document.querySelectorAll('[data-orient]').forEach(b=>b.classList.toggle('sel',b.dataset.orient===orient));
+    document.querySelectorAll('[data-grid]').forEach(b=>b.classList.toggle('sel',b.dataset.grid===gridType));
+    document.querySelectorAll('[data-hf]').forEach(b=>b.classList.toggle('sel',(b.dataset.hf==='on')===showHF));
+    document.querySelectorAll('[data-pen]').forEach(b=>b.classList.toggle('sel',b.dataset.pen===penStyle));
+    bgWrap.querySelectorAll('button').forEach(b=>b.classList.toggle('sel',b.dataset.c===pageBg));
+    if(s.graph){gfns=s.graph.gfns;PARAMS=s.graph.PARAMS||{};if(s.graph.gview&&Number.isFinite(s.graph.gview.ppu)&&s.graph.gview.ppu>0)gview=s.graph.gview;compileAll();renderFnList();refreshRiemFn();}
+    history=[];hIndex=-1;pushHistory();updateSizeUI();
+    if(s.cam&&[s.cam.x,s.cam.y,s.cam.scale].every(Number.isFinite)&&s.cam.scale>0){cam={...s.cam};cam.scale=Math.max(MIN_SCALE,Math.min(MAX_SCALE,cam.scale));}
+    clampCam();updateZoomLabel();inkSnapValid=false;render();if(graphReady)gpResize();
+  }
+  async function persistSession(emergency=false){
+    if(!sessionReady)return;
+    clearTimeout(saveTimer);
+    const revision=++saveRevision, data=snapshotSession();
+    sessionMessage('Guardando…');
+    if(emergency)sessionStore.checkpoint(data);
+    const ok=await sessionStore.save(data);
+    if(ok)savedRevision=Math.max(savedRevision,revision);
+    if(revision===saveRevision)sessionMessage(ok?'Guardado en este dispositivo · '+new Date(data.savedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'No se pudo guardar. Descarga un respaldo.',!ok);
+  }
+  function scheduleSessionSave(){if(!sessionReady)return;clearTimeout(saveTimer);saveTimer=setTimeout(()=>persistSession(),180);}
+  document.getElementById('session-download').onclick=()=>{
+    const blob=new Blob([JSON.stringify(snapshotSession())],{type:'application/json'});
+    const url=URL.createObjectURL(blob), a=document.createElement('a');a.href=url;a.download='pizarra-respaldo-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  };
+  document.getElementById('session-open').onclick=()=>document.getElementById('session-file').click();
+  document.getElementById('session-file').onchange=async e=>{
+    const file=e.target.files[0];e.target.value='';if(!file)return;
+    try{const data=validateSession(JSON.parse(await file.text()));if((strokes.length||images.length)&&!confirm('¿Reemplazar la pizarra actual con este respaldo? Descarga primero la actual si quieres conservar ambas.'))return;
+      sessionReady=false;applySession(data);sessionReady=true;await persistSession();toast('Respaldo abierto');
+    }catch(_){sessionMessage('No se pudo abrir el respaldo. Conserva el archivo original.',true);}
+  };
+  for(const ev of ['input','change','click','pointerup','keyup','wheel'])document.addEventListener(ev,e=>{if(!e.target.closest?.('#session-bar'))scheduleSessionSave();},{passive:true});
+  function pauseSession(){if(!sessionReady)return;if(drawId!==null)endDraw();persistSession(true);}
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')pauseSession();});
+  window.addEventListener('pagehide',pauseSession);
+  window.addEventListener('pageshow',()=>{if(sessionReady){resize();updateZoomLabel();}});
+  // Block editing only while loading so late restoration cannot erase new ink.
+  const loading=document.createElement('div');loading.id='session-loading';loading.textContent='Recuperando tu pizarra…';document.body.append(loading);
+  for(const ev of ['pointerdown','keydown'])document.addEventListener(ev,e=>{if(loading.isConnected){e.stopImmediatePropagation();e.preventDefault();}},true);
+  async function restoreSession(){
+    try{const data=await sessionStore.load();if(data){applySession(data);lastSaveTime=data.savedAt||0;sessionMessage('Sesión recuperada');}else sessionMessage('Guardado automático activo');sessionReady=true;}
+    catch(_){sessionMessage('No se pudo recuperar la sesión. Descarga un respaldo antes de cerrar.',true);}
+    finally{loading.remove();}
+  }
+
   /* ══════ Init ══════ */
   window.addEventListener('resize', ()=>{ resize();gpanel.style.left='';gpanel.style.top='';gpanel.style.right='';gpanel.style.width='';gpanel.style.height='';if(graphReady && gpanel.classList.contains('open')) gpResize(); });
-  resize(); fitWidth(); pushHistory();
+  resize(); fitWidth(); pushHistory(); restoreSession();
 })();
 </script>
 </body>
