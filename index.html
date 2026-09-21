@@ -335,11 +335,10 @@ canvas#board{touch-action:none;}
 @media(max-width:360px){.brand .meta,.brand .sep{display:none;}.gp-viewtools{gap:3px;right:6px;top:6px;}.gp-viewtools button{padding:6px 8px;}}
 
 
-  #session-bar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:9px;background:#152039ed;color:#fff;padding:8px 12px;border:1px solid #ffffff25;border-radius:12px;font:12px system-ui;box-shadow:0 3px 16px #0003;max-width:calc(100vw - 24px);}
-  #session-bar button{color:#fff;background:#ffffff15;border:1px solid #ffffff25;border-radius:7px;padding:8px;white-space:nowrap;cursor:pointer;font:inherit;min-height:36px;}
-  #session-status{min-width:130px;max-width:250px;}
+  #session-bar{display:flex;flex-direction:column;align-items:center;gap:4px;flex:0 0 auto;}
+  #session-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+  #session-symbol{font:700 20px system-ui;}
   #session-loading{position:fixed;inset:0;z-index:99999;background:#152039ed;color:white;display:grid;place-items:center;font:16px system-ui;}
-  @media(max-width:650px){#session-bar{gap:5px;padding:6px;flex-wrap:wrap;justify-content:center;width:max-content;bottom:5px;}#session-status{flex-basis:100%;text-align:center;max-width:none;}#session-bar button{font-size:11px;}}
 </style>
 </head>
 <body>
@@ -3157,10 +3156,20 @@ canvas#board{touch-action:none;}
   const sessionStore=createSessionStore('cm-pizarra-v1:'+location.pathname);
   let saveRevision=0, savedRevision=0, saveTimer=0, lastSaveTime=0;
   const saveBar=document.createElement('div'); saveBar.id='session-bar';
-  saveBar.innerHTML='<span id="session-status" role="status" aria-live="polite">Recuperando sesión…</span><button id="session-download" type="button">Descargar respaldo</button><button id="session-open" type="button">Abrir respaldo</button><input id="session-file" type="file" accept=".json,application/json" hidden>';
-  document.body.append(saveBar);
+  saveBar.innerHTML=`<button class="tool" id="session-download" type="button" title="Descargar respaldo editable" aria-label="Descargar respaldo editable"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></svg><span class="tip">Descargar respaldo</span></button>
+    <button class="tool" id="session-open" type="button" title="Abrir respaldo editable" aria-label="Abrir respaldo editable"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9V5h7l2 3h8v3M3 9h18l-3 11H3Z"/></svg><span class="tip">Abrir respaldo</span></button>
+    <button class="tool" id="session-indicator" type="button" title="Recuperando sesión…" aria-label="Consultar estado del guardado"><span id="session-symbol" aria-hidden="true">…</span><span class="tip">Estado del guardado</span></button>
+    <span id="session-status" role="status" aria-live="polite">Recuperando sesión…</span><input id="session-file" type="file" accept=".json,application/json" hidden>`;
+  document.getElementById('sidebar').insertBefore(saveBar,document.getElementById('btn-image'));
   const sessionStatus=document.getElementById('session-status');
-  function sessionMessage(text,failed=false){sessionStatus.textContent=text;sessionStatus.style.color=failed?'#ffb4a8':'#c9ead8';}
+  const sessionIndicator=document.getElementById('session-indicator');
+  sessionIndicator.onclick=()=>toast(sessionStatus.textContent);
+  function sessionMessage(text,failed=false){
+    sessionStatus.textContent=text;sessionIndicator.title=text;
+    sessionIndicator.setAttribute('aria-label','Estado del guardado: '+text);
+    sessionIndicator.style.color=failed?'#ffb4a8':'#c9ead8';
+    document.getElementById('session-symbol').textContent=failed?'!':text==='Guardando…'?'…':'✓';
+  }
   function snapshotSession(){
     const used={};for(const im of images)used[im.id]=imgStore[im.id];
     lastSaveTime=Math.max(Date.now(),lastSaveTime+1);
