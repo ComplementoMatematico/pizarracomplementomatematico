@@ -112,6 +112,8 @@
   .swatches button{ aspect-ratio:1; border-radius:9px; border:2px solid transparent; transition:transform .1s; }
   .swatches button:hover{ transform:scale(1.12); }
   .swatches button.sel{ border-color:#fff; box-shadow:0 0 0 2px var(--navy-deep) inset; }
+  .swatches button.fill-none{ background:#fff; position:relative; overflow:hidden; }
+  .swatches button.fill-none::after{ content:''; position:absolute; inset:0; background:linear-gradient(45deg, transparent 43%, #e0533f 43%, #e0533f 57%, transparent 57%); }
   .size-row{ display:flex; align-items:center; gap:12px; }
   .size-row input[type=range]{ flex:1; accent-color:var(--gold); }
   .size-preview{ width:40px; height:40px; border-radius:50%; flex:0 0 auto; display:grid; place-items:center; background:rgba(255,255,255,.06); }
@@ -251,10 +253,21 @@
   .gp-ttl input{ width:88px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); color:#eef2fb; border-radius:7px; padding:4px 7px; font-size:12px; }
   .gp-rn-wrap{ display:inline-flex; align-items:center; gap:7px; }
   #gp-rnslider{ width:118px; accent-color:var(--gold); }
-  .gp-keyboard{ flex:0 0 auto; display:none; grid-template-columns:repeat(8,1fr); gap:5px; padding:8px 10px; background:var(--slate); border-top:1px solid rgba(255,255,255,.08); }
-  .gp-keyboard.open{ display:grid; }
-  .gp-keyboard button{ background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); color:#eef2fb; border-radius:8px; padding:8px 0; font-size:14px; font-family:'Cambria Math','Times New Roman',serif; transition:background .12s; }
-  .gp-keyboard button:hover{ background:rgba(255,255,255,.16); }
+  .gp-keyboard{ flex:0 0 auto; display:none; flex-direction:column; gap:4px; padding:5px 8px 7px; background:linear-gradient(180deg,#141f36,#0f1830); border-top:1px solid rgba(255,255,255,.09); }
+  .gp-keyboard.open{ display:flex; }
+  .gp-kb-head{ display:flex; align-items:center; justify-content:space-between; height:19px; font-size:9.5px; letter-spacing:.6px; text-transform:uppercase; color:var(--ui-dim); padding:0 2px; }
+  .gp-kb-close{ width:22px; height:18px; border-radius:5px; color:var(--ui-dim); font-size:12px; display:grid; place-items:center; flex:0 0 auto; }
+  .gp-kb-close:hover{ background:rgba(255,255,255,.14); color:#fff; }
+  .gp-kb-row{ display:flex; gap:4px; }
+  .gp-kb-row button{ flex:1 1 0; min-width:0; height:33px; border-radius:8px; border:1px solid rgba(255,255,255,.08); color:#eef2fb; font-size:14px; font-family:'Cambria Math','Times New Roman',serif; transition:filter .12s, transform .04s; background:rgba(255,255,255,.05); }
+  .gp-kb-row button:hover{ filter:brightness(1.15); }
+  .gp-kb-row button:active{ transform:translateY(1px); }
+  .gp-kb-row button.k-n{ background:rgba(255,255,255,.1); font-weight:600; }
+  .gp-kb-row button.k-o{ background:rgba(120,162,232,.15); color:#dbe6ff; }
+  .gp-kb-row button.k-f{ background:rgba(74,196,182,.12); color:#c7f7f0; font-size:13.5px; }
+  .gp-kb-row button.k-v{ background:rgba(217,169,43,.15); color:#ffe4a0; font-style:italic; }
+  .gp-kb-row button.k-g{ background:rgba(255,255,255,.035); color:var(--ui-dim); }
+  .gp-kb-row button.k-p{ background:linear-gradient(180deg,#e3b44a,#d9a92b); color:var(--navy-deep); font-weight:700; }
   .gp-selrect{ position:absolute; border:1.5px dashed var(--gold); background:rgba(217,169,43,.12); pointer-events:none; display:none; }
   .gp-resize{ position:absolute; right:0; bottom:0; width:18px; height:18px; cursor:nwse-resize; z-index:5; }
   .gp-resize::after{ content:''; position:absolute; right:4px; bottom:4px; width:8px; height:8px; border-right:2px solid var(--ui-dim); border-bottom:2px solid var(--ui-dim); opacity:.6; }
@@ -290,7 +303,7 @@
 .gp-viewtools{position:absolute;right:12px;top:12px;display:flex;gap:5px;}.gp-viewtools button{background:#fffffff2;border:1px solid #d6dfeb;border-radius:9px;padding:8px 11px;color:#1b3153;box-shadow:0 2px 8px #1826400c;font-size:13px;}.gp-viewtools button:hover{background:#f2e7c8;}
 .gp-help{font-size:11px;line-height:1.7;color:#aebdd4;}.gp-help summary{cursor:pointer;color:#ecd18b;}.gp-help code{color:#e7edf8;}
 .gp-value-table{width:100%;border-collapse:collapse;font:12px/1.5 system-ui;color:#dce6f4;margin-top:8px;}.gp-value-table td,.gp-value-table th{padding:5px 8px;border-bottom:1px solid #ffffff12;text-align:right;}.gp-value-table th:first-child,.gp-value-table td:first-child{text-align:left;}
-@media(max-width:700px){.grapher-panel{right:6px;top:8px;width:calc(100% - 12px);height:calc(100% - 16px);}.grapher-panel.open{grid-template-columns:1fr;grid-template-rows:44px minmax(160px,45%) minmax(160px,1fr) auto;}.gp-head{height:44px;}.gp-controls{grid-column:1;grid-row:2;}.gp-body{grid-column:1;grid-row:3;}.gp-keyboard{grid-row:4;grid-template-columns:repeat(8,minmax(0,1fr));max-height:180px;overflow:auto;}.gp-head .gp-title{font-size:12px;}.gp-badge{display:none;}.gp-intro{display:none;}}
+@media(max-width:700px){.grapher-panel{right:6px;top:8px;width:calc(100% - 12px);height:calc(100% - 16px);}.grapher-panel.open{grid-template-columns:1fr;grid-template-rows:44px minmax(160px,45%) minmax(160px,1fr) auto;}.gp-head{height:44px;}.gp-controls{grid-column:1;grid-row:2;}.gp-body{grid-column:1;grid-row:3;}.gp-keyboard{grid-row:4;max-height:46vh;overflow:auto;}.gp-kb-row button{height:37px;font-size:14px;}.gp-head .gp-title{font-size:12px;}.gp-badge{display:none;}.gp-intro{display:none;}}
 
 
 .ink-comfort{border-top:1px solid #ffffff18;margin-top:14px;padding-top:1px;}.ink-smooth-label{display:flex;justify-content:space-between;font-size:12px;color:#dce4f2;}.ink-smooth-label output{color:#f0d99a;font-variant-numeric:tabular-nums;}#ink-smoothing{width:100%;accent-color:#d9a92b;margin:10px 0;}.ink-presets{display:flex;gap:5px;}.ink-presets button{flex:1;padding:7px 4px;color:#cbd7eb;background:#ffffff09;border:1px solid #ffffff18;border-radius:7px;font-size:11px;}.ink-presets button.sel{border-color:#d9a92b;color:#f3d78c;background:#d9a92b15;}.ink-comfort p{font-size:11px;line-height:1.5;color:#a8b8cf;margin:9px 0;}.ink-touch{display:flex;gap:7px;align-items:center;font-size:12px;line-height:1.4;color:#dce4f2;margin:10px 0;}#style-pop{max-height:calc(100vh - 24px);overflow-y:auto;scrollbar-width:thin;}
@@ -305,6 +318,10 @@ canvas#board{touch-action:none;}
 .grapher-panel{max-width:calc(100% - 16px);max-height:calc(100% - 16px);min-height:0;}
 .grapher-panel.max{top:8px !important;left:8px !important;right:8px !important;bottom:8px !important;}
 .selection-toolbar{position:absolute;z-index:22;top:12px;right:12px;max-width:calc(100% - 96px);display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid #ffffff22;border-radius:12px;background:#142449f5;box-shadow:var(--shadow);touch-action:manipulation;}
+.paste-pill{position:absolute;z-index:22;top:12px;right:12px;display:flex;align-items:center;gap:7px;padding:8px 14px 8px 11px;border:1px solid #ffffff22;border-radius:999px;background:linear-gradient(180deg,#e3b44a,#d9a92b);color:var(--navy-deep);font-size:13px;font-weight:700;box-shadow:var(--shadow);touch-action:manipulation;cursor:pointer;}
+.paste-pill svg{width:17px;height:17px;}
+.paste-pill:hover{filter:brightness(1.06);}
+.paste-pill:active{transform:translateY(1px);}
 .selection-toolbar[hidden]{display:none;}.selection-toolbar button{min-width:36px;min-height:36px;padding:6px 9px;border-radius:7px;background:#ffffff10;color:#f3f6fc;}.selection-toolbar button:hover{background:#d9a92b33;}.selection-toolbar button:disabled{opacity:.3;cursor:default;}.selection-toolbar small{font-size:11px;color:#c6d2e8;padding:0 5px;}.selection-toolbar .sel-divider{height:22px;width:1px;background:#ffffff25;}.selection-toolbar button svg{display:block;width:18px;height:18px;}.selection-toolbar .sel-danger:hover{background:#e0533733;color:#ffd7cf;}.selection-toolbar button:disabled{opacity:.3;cursor:default;}.crop-toolbar{left:50%;right:auto;top:12px;transform:translateX(-50%);}.crop-toolbar .crop-primary{background:#d9a92b;color:#142449;font-weight:700;min-width:auto;padding:6px 12px;}.crop-toolbar .crop-primary:hover{background:#e7bd4e;}.stage.cropping canvas#board{cursor:default;}.sides-row{display:flex;align-items:center;justify-content:space-between;margin-top:11px;font-size:12.5px;color:var(--ui-dim);}.sides-stepper{display:inline-flex;align-items:center;gap:8px;}.sides-stepper button{width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#fff;font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;}.sides-stepper button:hover{background:rgba(255,255,255,.14);}.sides-stepper b{min-width:16px;text-align:center;color:#fff;font-weight:700;}.shape-hint{margin:11px 0 0;font-size:11px;line-height:1.45;color:var(--ui-dim);}
 @media(max-width:600px){
  header{height:46px;padding:0 10px;}.brand{gap:8px;}.brand .mark{font-size:17px;}.brand .mark .logo-mark{height:24px;width:24px;}.brand .meta{font-size:9px;letter-spacing:1px;}.brand .sep{height:16px;}.stage{top:46px;}
@@ -314,10 +331,10 @@ canvas#board{touch-action:none;}
  .toast{max-width:calc(100% - 24px);width:max-content;font-size:12px;}
  .grapher-panel,.grapher-panel.max{left:6px !important;right:6px !important;top:6px !important;bottom:6px !important;width:auto !important;height:auto !important;max-width:none;max-height:none;}
  .gp-head .gp-title{min-width:0;font-size:11px;gap:4px;}.gp-head{gap:4px;padding-left:8px;}.gp-head button{flex-shrink:0;width:28px;}
- .grapher-panel.open{grid-template-rows:44px minmax(0,44%) minmax(0,1fr) auto;}.gp-keyboard.open{max-height:140px;}.gp-controls{padding:10px;}.gp-fn{padding:8px;}.gp-keyboard button{padding:6px 0;}.gp-resize{display:none;}
+ .grapher-panel.open{grid-template-rows:44px minmax(0,44%) minmax(0,1fr) auto;}.gp-keyboard.open{max-height:140px;}.gp-controls{padding:10px;}.gp-fn{padding:8px;}.gp-kb-row button{height:28px;font-size:13px;}.gp-resize{display:none;}
 }
-@media(max-height:520px){header{height:40px;}.stage{top:40px;}.sidebar{padding:4px;gap:2px;max-height:calc(100% - 8px);}.sidebar .tool{height:34px;width:36px;}.grapher-panel.open{grid-template-columns:minmax(220px,40%) minmax(0,1fr);grid-template-rows:40px minmax(0,1fr) auto;}.gp-head{height:40px;}.gp-controls{grid-column:1;grid-row:2;}.gp-body{grid-column:2;grid-row:2;}.gp-keyboard{grid-column:1/-1;grid-row:3;max-height:100px;overflow:auto;}.gp-intro{display:none;}}
-@media(max-width:600px) and (max-height:520px){.grapher-panel.open{grid-template-columns:1fr;grid-template-rows:40px minmax(0,42%) minmax(0,1fr) auto;}.gp-controls{grid-column:1;grid-row:2;}.gp-body{grid-column:1;grid-row:3;}.gp-keyboard{grid-row:4;max-height:80px;}}
+@media(max-height:520px){header{height:40px;}.stage{top:40px;}.sidebar{padding:4px;gap:2px;max-height:calc(100% - 8px);}.sidebar .tool{height:34px;width:36px;}.grapher-panel.open{grid-template-columns:minmax(220px,40%) minmax(0,1fr);grid-template-rows:40px minmax(0,1fr) auto;}.gp-head{height:40px;}.gp-controls{grid-column:1;grid-row:2;}.gp-body{grid-column:2;grid-row:2;}.gp-keyboard{grid-column:1/-1;grid-row:3;max-height:44vh;overflow:auto;}.gp-kb-row button{height:30px;font-size:13px;}.gp-intro{display:none;}}
+@media(max-width:600px) and (max-height:520px){.grapher-panel.open{grid-template-columns:1fr;grid-template-rows:40px minmax(0,42%) minmax(0,1fr) auto;}.gp-controls{grid-column:1;grid-row:2;}.gp-body{grid-column:1;grid-row:3;}.gp-keyboard{grid-row:4;max-height:42vh;}}
 @media(max-width:360px){.brand .meta,.brand .sep{display:none;}.gp-viewtools{gap:3px;right:6px;top:6px;}.gp-viewtools button{padding:6px 8px;}}
 
 </style>
@@ -348,6 +365,7 @@ canvas#board{touch-action:none;}
       <button id="sel-copy" title="Copiar (Ctrl/⌘ + C)" aria-label="Copiar selección"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg></button>
       <button id="sel-cut" title="Cortar (Ctrl/⌘ + X)" aria-label="Cortar selección"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.5 15.5M14.5 14.5 20 20M8.5 8.5 12 12"/></svg></button>
       <button id="sel-dup" title="Duplicar (Ctrl/⌘ + D)" aria-label="Duplicar selección"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/><path d="M14 11.5v5M11.5 14h5"/></svg></button>
+      <button id="sel-paste" title="Pegar (Ctrl/⌘ + V)" aria-label="Pegar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1z"/><path d="M8 6H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2"/></svg></button>
       <button id="sel-del" class="sel-danger" title="Eliminar (Supr)" aria-label="Eliminar selección"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M18.5 6l-1 13.5a2 2 0 0 1-2 1.9H8.5a2 2 0 0 1-2-1.9L5.5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
     </div>
 
@@ -362,6 +380,8 @@ canvas#board{touch-action:none;}
       <button id="poly-close" class="crop-primary" title="Cerrar polígono (Enter)" disabled>✓ Cerrar</button>
       <button id="poly-cancel" title="Cancelar (Esc)">Cancelar</button>
     </div>
+
+    <button id="paste-pill" class="paste-pill" aria-label="Pegar" title="Pegar lo copiado (también desde otra pestaña)" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1z"/><path d="M8 6H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2"/></svg> Pegar</button>
 
     <!-- Barra lateral -->
     <div class="sidebar" id="sidebar">
@@ -453,6 +473,12 @@ canvas#board{touch-action:none;}
           <div id="sec-color">
             <h4>Color</h4>
             <div class="swatches" id="ink-swatches"></div>
+            <label class="custom-color"><input type="color" id="ink-custom" value="#17202e" /> Color personalizado</label>
+          </div>
+          <div id="sec-fill" style="display:none">
+            <h4>Relleno de la figura</h4>
+            <div class="swatches" id="fill-swatches"></div>
+            <label class="custom-color"><input type="color" id="fill-custom" value="#d9a92b" /> Color personalizado</label>
           </div>
           <h4>Grosor del <span id="size-tool-label">lápiz</span></h4>
           <div class="size-row">
@@ -669,6 +695,8 @@ canvas#board{touch-action:none;}
   let polySides = 5;                            // lados del polígono regular
   let polyBuild = null;                         // construcción de polígono irregular {pts,cursor}
   const SHAPE_TOOLS=['triangle','rect','circle','polyreg','polygon'];
+  let shapeFill = null;                          // relleno de figuras (null = transparente)
+  const FILL_ALPHA = 0.5;                        // relleno translúcido para ver la hoja debajo
   let pageBg = '#ffffff';
   let showHF = true;                          // mostrar encabezado y pie
   let hfSection = 'Clases de Matemática';   // texto derecho del encabezado
@@ -1007,16 +1035,20 @@ canvas#board{touch-action:none;}
     return v;
   }
   function drawShape(c,s){
-    c.globalAlpha = s.alpha ?? 1; c.lineWidth=s.size; c.strokeStyle=s.color; c.fillStyle=s.color; c.lineCap='round';
+    c.save(); c.lineWidth=s.size; c.strokeStyle=s.color; c.lineCap='round';
     if(s.shape==='ellipse'){
       const p=s.pts, cx=(p[0].x+p[1].x)/2, cy=(p[0].y+p[1].y)/2, rx=Math.abs(p[1].x-p[0].x)/2, ry=Math.abs(p[1].y-p[0].y)/2;
-      c.save(); c.translate(cx,cy); if(s.rot) c.rotate(s.rot); c.lineJoin='round'; c.beginPath(); c.ellipse(0,0,Math.max(.1,rx),Math.max(.1,ry),0,0,6.2832); c.stroke(); c.restore(); c.globalAlpha=1; return;
+      c.translate(cx,cy); if(s.rot) c.rotate(s.rot); c.lineJoin='round';
+      c.beginPath(); c.ellipse(0,0,Math.max(.1,rx),Math.max(.1,ry),0,0,6.2832);
+    } else {
+      const V=shapeVerticesFinal(s); if(V.length<2){ c.restore(); return; }
+      c.lineJoin='miter'; c.miterLimit=6;
+      c.beginPath(); c.moveTo(V[0].x,V[0].y); for(let i=1;i<V.length;i++) c.lineTo(V[i].x,V[i].y);
+      if(s.closed!==false) c.closePath();
     }
-    const V=shapeVerticesFinal(s); if(V.length<2){ c.globalAlpha=1; return; }
-    c.lineJoin='miter'; c.miterLimit=6;
-    c.beginPath(); c.moveTo(V[0].x,V[0].y); for(let i=1;i<V.length;i++) c.lineTo(V[i].x,V[i].y);
-    if(s.closed!==false) c.closePath();
-    c.stroke(); c.globalAlpha=1;
+    if(s.fill){ c.globalAlpha=(s.alpha??1)*FILL_ALPHA; c.fillStyle=s.fill; c.fill(); }
+    c.globalAlpha=s.alpha??1; c.stroke();
+    c.restore();
   }
 
   function drawStroke(c, s){
@@ -1148,6 +1180,7 @@ canvas#board{touch-action:none;}
     if(tool==='triangle'||tool==='rect'||tool==='circle'||tool==='polyreg'){
       const shp = tool==='circle'?'ellipse' : tool==='rect'?'rect' : tool==='triangle'?'triangle' : 'polyreg';
       current = { tool:'shape', shape:shp, color:ink, size:sizes.line, pts:[{x:wp.x,y:wp.y},{x:wp.x,y:wp.y}], closed:true };
+      if(shapeFill) current.fill = shapeFill;
       if(shp==='polyreg') current.sides = polySides;
       drawId=e.pointerId; drawRole='shape'; lineStart={x:wp.x,y:wp.y}; captureInkSnapshot(); fastInkRender(); return;
     }
@@ -1224,7 +1257,9 @@ canvas#board{touch-action:none;}
   }
   function polyClose(){
     if(polyBuild && polyBuild.pts.length>=3){
-      strokes.push({ tool:'shape', shape:'polygon', color:ink, size:sizes.line, closed:true, pts:polyBuild.pts.map(p=>({x:p.x,y:p.y})) });
+      const st={ tool:'shape', shape:'polygon', color:ink, size:sizes.line, closed:true, pts:polyBuild.pts.map(p=>({x:p.x,y:p.y})) };
+      if(shapeFill) st.fill=shapeFill;
+      strokes.push(st);
       pushHistory();
     }
     polyBuild=null; polyTap=null; updatePolyToolbar(); render();
@@ -1307,6 +1342,7 @@ canvas#board{touch-action:none;}
     bar.querySelectorAll('[data-rotate]').forEach(b=>b.disabled=!selCount());
     const cb=document.getElementById('sel-crop');
     if(cb){ cb.disabled = !(sel.images.length===1 && sel.strokes.length===0 && (((sel.images[0].rotation||0)%360)===0)); }
+    updatePasteUI();
   }
 
   function hitHandle(im, sx, sy){
@@ -1393,16 +1429,42 @@ canvas#board{touch-action:none;}
   }
 
   /* ── Copiar / pegar / duplicar / borrar selección ── */
-  function copySel(){ if(!selCount()) return; clipboard={ strokes:sel.strokes.map(s=>JSON.parse(JSON.stringify(s))), images:sel.images.map(im=>({...im})) }; toast('Copiado ('+selCount()+')'); }
-  function pasteClip(){
-    if(!clipboard) return;
-    const off=26/cam.scale;
-    const ns=clipboard.strokes.map(s=>{ const c=JSON.parse(JSON.stringify(s)); for(const p of c.pts){ p.x+=off; p.y+=off; } return c; });
-    const ni=clipboard.images.map(im=>({...im, x:im.x+off, y:im.y+off}));
-    strokes.push(...ns); images.push(...ni);
-    sel={strokes:ns, images:ni}; setTool('select'); pushHistory(); render(); toast('Pegado');
+  /* ── Portapapeles: interno + compartido entre pestañas (localStorage) ── */
+  const CLIP_KEY='pizarra-cm-clipboard';
+  function writeSharedClip(cb){ try{ localStorage.setItem(CLIP_KEY, JSON.stringify(cb)); }catch(_){} }
+  function readSharedClip(){ try{ const s=localStorage.getItem(CLIP_KEY); return s?JSON.parse(s):null; }catch(_){ return null; } }
+  function clipCount(cb){ return cb?(((cb.strokes&&cb.strokes.length)||0)+((cb.images&&cb.images.length)||0)):0; }
+  function hasClipboard(){ if(clipCount(clipboard)) return true; return clipCount(readSharedClip())>0; }
+  function updatePasteUI(){
+    const pill=document.getElementById('paste-pill');
+    const selBar = tool==='select' && selCount()>0 && !imgCropMode;
+    if(pill) pill.hidden = !(hasClipboard() && !selBar && !imgCropMode);
+    const pb=document.getElementById('sel-paste'); if(pb) pb.disabled = !hasClipboard();
   }
-  function deleteSel(){ if(!selCount()) return; strokes=strokes.filter(s=>!inSel(s,sel.strokes)); images=images.filter(im=>!inSel(im,sel.images)); clearSel(); pushHistory(); render(); }
+  function copySel(){ if(!selCount()) return;
+    clipboard={ v:1,
+      strokes: sel.strokes.map(s=>JSON.parse(JSON.stringify(s))),
+      images: sel.images.map(im=>({ x:im.x,y:im.y,w:im.w,h:im.h, rotation:im.rotation||0, crop:im.crop||null, src:imgStore[im.id] })) };
+    writeSharedClip(clipboard); updatePasteUI(); toast('Copiado ('+selCount()+')'); }
+  function pasteClip(){
+    const fromMem=!!clipboard;
+    const cb=clipboard||readSharedClip(); if(!clipCount(cb)) return;
+    const ns=(cb.strokes||[]).map(s=>JSON.parse(JSON.stringify(s)));
+    const ni=(cb.images||[]).map(im=>{ const id='img'+(nextImgId++); const src=im.src||(im.id&&imgStore[im.id]); if(src){ imgStore[id]=src; imgEl(id); }
+      const o={id, x:im.x||0, y:im.y||0, w:im.w, h:im.h}; if(im.rotation)o.rotation=im.rotation; if(im.crop)o.crop=im.crop; return o; });
+    let dx, dy;
+    if(fromMem){ dx=dy=26/cam.scale; }
+    else { let a=Infinity,b=Infinity,c=-Infinity,d=-Infinity;
+      for(const s of ns) for(const p of s.pts){ a=Math.min(a,p.x);b=Math.min(b,p.y);c=Math.max(c,p.x);d=Math.max(d,p.y); }
+      for(const im of ni){ a=Math.min(a,im.x);b=Math.min(b,im.y);c=Math.max(c,im.x+im.w);d=Math.max(d,im.y+im.h); }
+      const vc=screenToWorld(viewW()/2, viewH()/2);
+      if(isFinite(a)){ dx=vc.x-(a+c)/2; dy=vc.y-(b+d)/2; } else { dx=dy=0; } }
+    for(const s of ns) for(const p of s.pts){ p.x+=dx; p.y+=dy; }
+    for(const im of ni){ im.x+=dx; im.y+=dy; }
+    strokes.push(...ns); images.push(...ni);
+    sel={strokes:ns, images:ni}; setTool('select'); pushHistory(); render(); refreshSelectionToolbar(); toast('Pegado ('+(ns.length+ni.length)+')');
+  }
+  function deleteSel(){ if(!selCount()) return; strokes=strokes.filter(s=>!inSel(s,sel.strokes)); images=images.filter(im=>!inSel(im,sel.images)); clearSel(); pushHistory(); render(); refreshSelectionToolbar(); }
 
   function startPan(e){ panId=e.pointerId; panLast=localXY(e); canvas.setPointerCapture(e.pointerId); stage.classList.add('panning'); }
   function doPan(e){ const p=localXY(e); cam.x+=p.x-panLast.x; cam.y+=p.y-panLast.y; panLast=p; clampCam(); render(); }
@@ -1576,6 +1638,7 @@ canvas#board{touch-action:none;}
     closePopovers();
     updateStyleSections();
     updateSizeUI();
+    updatePasteUI();
     render();
   }
   toolBtns.forEach(b=> b.onclick=()=>setTool(b.dataset.tool));
@@ -1583,16 +1646,43 @@ canvas#board{touch-action:none;}
   // mostrar solo las secciones relevantes del popover de estilo
   function updateStyleSections(){
     const isPen=(tool==='pen'), isEr=(tool==='eraser'), hasColor=(tool==='pen'||tool==='marker'||tool==='line'||SHAPE_TOOLS.includes(tool));
+    const selMode = tool==='select' && selCount()>0;
+    const showColor = hasColor || selMode;
+    const showFill = SHAPE_TOOLS.includes(tool) || (tool==='select' && sel.strokes.some(s=>s.shape));
     document.getElementById('sec-pen').style.display    = isPen ? '' : 'none';
     document.getElementById('sec-eraser').style.display = isEr ? '' : 'none';
-    document.getElementById('sec-color').style.display  = hasColor ? '' : 'none';
+    document.getElementById('sec-color').style.display  = showColor ? '' : 'none';
+    document.getElementById('sec-fill').style.display   = showFill ? '' : 'none';
+    const ch=document.querySelector('#sec-color h4'); if(ch) ch.textContent = selMode ? 'Color del trazo / contorno' : 'Color';
   }
 
   // paleta de tinta
   const inkWrap=document.getElementById('ink-swatches');
-  INKS.forEach(c=>{ const b=document.createElement('button'); b.style.background=c; if(c==='#ffffff')b.style.boxShadow='inset 0 0 0 1px rgba(0,0,0,.2)'; b.dataset.c=c; b.onclick=()=>setInk(c); inkWrap.appendChild(b); });
-  function setInk(c){ ink=c; document.getElementById('pen-dot').style.background=c; document.getElementById('style-swatch').style.background=c; inkWrap.querySelectorAll('button').forEach(b=>b.classList.toggle('sel',b.dataset.c===c)); if(tool==='eraser'||tool==='pan'||tool==='select') setTool('pen'); }
+  INKS.forEach(c=>{ const b=document.createElement('button'); b.style.background=c; if(c==='#ffffff')b.style.boxShadow='inset 0 0 0 1px rgba(0,0,0,.2)'; b.dataset.c=c; b.onclick=()=>setInk(c,true); inkWrap.appendChild(b); });
+  document.getElementById('ink-custom').oninput=e=>setInk(e.target.value,true);
+  function setInk(c, fromUser){ ink=c; document.getElementById('pen-dot').style.background=c; document.getElementById('style-swatch').style.background=c; inkWrap.querySelectorAll('button').forEach(b=>b.classList.toggle('sel',b.dataset.c===c));
+    if(!fromUser) return;
+    if(tool==='select'){ if(selCount()){ for(const s of sel.strokes){ s.color=c; } pushHistory(); render(); } else setTool('pen'); }
+    else if(tool==='eraser'||tool==='pan'){ setTool('pen'); }
+  }
   setInk(ink);
+
+  // paleta de relleno (figuras): transparente + colores + color personalizado
+  const fillWrap=document.getElementById('fill-swatches');
+  { const b=document.createElement('button'); b.className='fill-none'; b.title='Sin relleno (transparente)'; b.dataset.fill='none'; b.onclick=()=>setFill('none'); fillWrap.appendChild(b); }
+  INKS.forEach(c=>{ const b=document.createElement('button'); b.style.background=c; if(c==='#ffffff')b.style.boxShadow='inset 0 0 0 1px rgba(0,0,0,.2)'; b.dataset.fill=c; b.onclick=()=>setFill(c); fillWrap.appendChild(b); });
+  document.getElementById('fill-custom').oninput=e=>setFill(e.target.value);
+  function setFill(c){
+    shapeFill = (c==='none') ? null : c;
+    const key = shapeFill || 'none';
+    fillWrap.querySelectorAll('button').forEach(b=>b.classList.toggle('sel', b.dataset.fill===key));
+    if(tool==='select'){                          // recolorear figuras ya seleccionadas
+      let changed=false;
+      for(const s of sel.strokes){ if(s.shape){ if(shapeFill) s.fill=shapeFill; else delete s.fill; changed=true; } }
+      if(changed){ pushHistory(); render(); }
+    }
+  }
+  setFill('none');
 
   // modo de goma
   document.querySelectorAll('#eraser-opts button').forEach(b=>{
@@ -1747,7 +1837,7 @@ canvas#board{touch-action:none;}
     trigger.addEventListener('click', e=>{
       if(e.target.closest('.popover')) return;
       const willOpen = !el.classList.contains('open');
-      if(willOpen) openPopover(el, trigger); else closePopovers();
+      if(willOpen){ if(pop==='style-pop') updateStyleSections(); openPopover(el, trigger); } else closePopovers();
     });
   });
   // cerrar solo si el clic no fue en un disparador ni dentro de un popover
@@ -1879,22 +1969,62 @@ canvas#board{touch-action:none;}
   let calc={on:false, fnIdx:0, c:1, tan:true, nor:false, lin:false, thm:'', ta:-1, tb:2, tk:1};
   let apps={on:false, f1:0, f2:'axis', a:0, b:2, shade:true, rev:false, axis:'x', k:0, method:'discos', traces:true, traceCount:9, traceDepth:.26, showSolid:true, phase:1, anim:false, speed:1, showInset:true, section:'auto', sliceP:.5, sliceAuto:false, insetPos:null};
 
-  const GRAPH_FUNCS={ sin:Math.sin,cos:Math.cos,tan:Math.tan,asin:Math.asin,acos:Math.acos,atan:Math.atan,sinh:Math.sinh,cosh:Math.cosh,tanh:Math.tanh,sqrt:Math.sqrt,cbrt:Math.cbrt,exp:Math.exp,abs:Math.abs,sign:Math.sign,floor:Math.floor,ceil:Math.ceil,round:Math.round,ln:Math.log,log:x=>Math.log(x)/Math.LN10,lg:x=>Math.log(x)/Math.LN10,log2:x=>Math.log(x)/Math.LN2,logaritmo:x=>Math.log(x)/Math.LN10 };
+  const GRAPH_FUNCS={ sin:Math.sin,cos:Math.cos,tan:Math.tan,asin:Math.asin,acos:Math.acos,atan:Math.atan,
+    sec:x=>1/Math.cos(x),csc:x=>1/Math.sin(x),cot:x=>1/Math.tan(x),
+    sinh:Math.sinh,cosh:Math.cosh,tanh:Math.tanh,sech:x=>1/Math.cosh(x),csch:x=>1/Math.sinh(x),coth:x=>1/Math.tanh(x),
+    asinh:Math.asinh,acosh:Math.acosh,atanh:Math.atanh,
+    sqrt:Math.sqrt,cbrt:Math.cbrt,exp:Math.exp,abs:Math.abs,sign:Math.sign,sgn:Math.sign,
+    floor:Math.floor,ceil:Math.ceil,round:Math.round,trunc:Math.trunc,frac:x=>x-Math.floor(x),
+    ln:Math.log,log:x=>Math.log(x)/Math.LN10,lg:x=>Math.log(x)/Math.LN10,log2:x=>Math.log(x)/Math.LN2,log10:x=>Math.log(x)/Math.LN10,logaritmo:x=>Math.log(x)/Math.LN10,
+    heaviside:x=>x>0?1:(x<0?0:0.5),step:x=>x>=0?1:0,gamma:gammaFn };
+  function gammaFn(x){ // Lanczos
+    const g=7,c=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+    if(x<0.5) return Math.PI/(Math.sin(Math.PI*x)*gammaFn(1-x));
+    x-=1; let a=c[0]; const t=x+g+0.5; for(let i=1;i<g+2;i++)a+=c[i]/(x+i); return Math.sqrt(2*Math.PI)*Math.pow(t,x+0.5)*Math.exp(-t)*a; }
 
   // ═══ MOTOR SEMÁNTICO (evalúa; admite x, y, a; ecuaciones y relaciones) ═══
+  function absBars(s){ let out='',open=false; for(const ch of s){ if(ch==='|'){ out+= open?')':'abs('; open=!open; } else out+=ch; } if(open) out+=')'; return out; }
   function gnorm(s){
     const supers={'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','⁻':'-','⁺':'+'};
-    return (s||'').replace(/\\geq|\\ge|≥/g,'>=').replace(/\\leq|\\le|≤/g,'<=')
-      .replace(/[−–]/g,'-').replace(/[·×∙]/g,'*').replace(/÷/g,'/').replace(/√/g,'sqrt').replace(/∛/g,'cbrt')
-      .replace(/π/g,' pi ').replace(/τ/g,' tau ').replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+/g,m=>'^('+[...m].map(c=>supers[c]).join('')+')')
-      .replace(/\bsen\b/gi,'sin').replace(/\barcsin\b/gi,'asin').replace(/\barccos\b/gi,'acos').replace(/\barctan\b/gi,'atan')
-      .replace(/\b([xya]{2,})\b/g,m=>m.split('').join('*')).replace(/\s+/g,' ').trim();
+    let r=(s||'')
+      // LaTeX-lite: \frac{}{}, ^{}, comandos, llaves
+      .replace(/\\left|\\right|\\!|\\,|\\;|\\ /g,'')
+      .replace(/\\cdot|\\times|\\ast/g,'*').replace(/\\div/g,'/')
+      .replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g,'(($1)/($2))')
+      .replace(/\\sqrt\s*\{([^{}]*)\}/g,'sqrt($1)')
+      .replace(/\^\s*\{([^{}]*)\}/g,'^($1)')
+      .replace(/\\(operatorname|mathrm)\s*\{([^{}]*)\}/g,'$2')
+      .replace(/\\(log|lg|ln|logaritmo)(?=_)/gi,'$1')
+      .replace(/\\(pi|tau|phi|cdot|sqrt|cbrt|ln|log|lg|exp|sin|cos|tan|sec|csc|cot|sinh|cosh|tanh|arcsin|arccos|arctan|min|max|abs)\b/g,'$1')
+      .replace(/[{]/g,'(').replace(/[}]/g,')')
+      // potencia estilo Python y comparadores
+      .replace(/\*\*/g,'^')
+      .replace(/\\geq|\\ge|≥/g,'>=').replace(/\\leq|\\le|≤/g,'<=')
+      // signos y símbolos
+      .replace(/[−–—]/g,'-').replace(/[·×∙⋅]/g,'*').replace(/[÷]/g,'/')
+      .replace(/°/g,'*(pi/180)')
+      // raíces con símbolo: √x, √2, √π, √(...)
+      .replace(/√\s*(\d+(?:\.\d+)?|[a-zA-Zπφ])(?![a-zA-Z0-9π])/g,'sqrt($1)')
+      .replace(/∛\s*(\d+(?:\.\d+)?|[a-zA-Zπφ])(?![a-zA-Z0-9π])/g,'cbrt($1)')
+      .replace(/√\s*(?=\()/g,'sqrt').replace(/∛\s*(?=\()/g,'cbrt').replace(/√/g,'sqrt').replace(/∛/g,'cbrt')
+      // constantes
+      .replace(/π/g,' pi ').replace(/τ/g,' tau ').replace(/φ/g,' phi ')
+      // superíndices unicode
+      .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+/g,m=>'^('+[...m].map(c=>supers[c]).join('')+')')
+      // nombres español / abreviaturas estándar (antes de tokenizar)
+      .replace(/\barcsen\b/gi,'asin').replace(/\barcsin\b/gi,'asin').replace(/\barccos\b/gi,'acos')
+      .replace(/\barctan\b/gi,'atan').replace(/\barctg\b/gi,'atan')
+      .replace(/\bsen\b/gi,'sin').replace(/\btg\b/gi,'tan').replace(/\bcotg\b/gi,'cot').replace(/\bctg\b/gi,'cot')
+      .replace(/\bcosec\b/gi,'csc').replace(/\bcosech\b/gi,'csch')
+      .replace(/\bra[ií]z\b/gi,'sqrt');
+    r=absBars(r);
+    return r.replace(/\b([xya]{2,})\b/g,m=>m.split('').join('*')).replace(/\s+/g,' ').trim();
   }
   function gTok(src){ const T=[]; let i=0; const A=c=>/[a-zA-Z]/.test(c), D=c=>c>='0'&&c<='9';
     while(i<src.length){ const c=src[i]; if(c===' '){i++;continue;}
       if(D(c)||(c==='.'&&D(src[i+1]))){ let j=i+1; while(j<src.length&&(D(src[j])||src[j]==='.'))j++; const num=src.slice(i,j); if(!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(num)) throw Error('Número inválido: '+num); T.push({t:'num',v:Number(num)}); i=j; continue; }
       if(A(c)){ let j=i+1; while(j<src.length&&(A(src[j])||D(src[j])))j++; T.push({t:'name',v:src.slice(i,j)}); i=j; continue; }
-      if('+-*/^()'.includes(c)){ T.push({t:'op',v:c}); i++; continue; }
+      if('+-*/^()_'.includes(c)){ T.push({t:'op',v:c}); i++; continue; }
       throw 0; }
     return T; }
   function gParse(str){ const T=gTok(str); let p=0; const pk=()=>T[p], nx=()=>T[p++];
@@ -1906,16 +2036,17 @@ canvas#board{touch-action:none;}
       if(t.t==='num') return {t:'num',v:t.v};
       if(t.v==='('){ const e=expr(); if(!pk()||nx().v!==')') throw 0; return {t:'paren',a:e}; }
       if(t.t==='name'){ const n=t.v.toLowerCase();
+        if((n==='log'||n==='lg'||n==='logaritmo') && pk() && pk().v==='_'){ nx(); const bnode=base(); const anode=base(); return {t:'div', a:{t:'call',name:'ln',a:anode}, b:{t:'call',name:'ln',a:bnode}}; }
         if(pk()&&pk().v==='('&&GRAPH_FUNCS[n]){ nx(); const arg=expr(); if(!pk()||nx().v!==')') throw 0; if(!GRAPH_FUNCS[n]) throw 0; return {t:'call',name:n,a:arg}; }
         if(n==='x'||n==='y'||n==='z') return {t:'var',v:n};
-        if(n==='pi'||n==='e'||n==='tau') return {t:'const',name:n};
+        if(n==='pi'||n==='e'||n==='tau'||n==='phi') return {t:'const',name:n};
         return {t:'var',v:n}; }
       throw Error('Revisa los operadores y los paréntesis.'); }
     const ast=expr(); if(p<T.length) throw 0; return ast; }
   function gComp(n){ switch(n.t){
       case 'num':{ const v=n.v; return ()=>v; }
       case 'var':{ const k=n.v; return (x,y,P)=> k==='x'?x : k==='y'?y : k==='z'?0 : (P?(P[k]||0):0); }
-      case 'const':{ const v=n.name==='pi'?Math.PI:n.name==='e'?Math.E:2*Math.PI; return ()=>v; }
+      case 'const':{ const v=n.name==='pi'?Math.PI:n.name==='e'?Math.E:n.name==='phi'?1.618033988749895:2*Math.PI; return ()=>v; }
       case 'paren': return gComp(n.a);
       case 'neg':{ const a=gComp(n.a); return (x,y,A)=>-a(x,y,A); }
       case 'add':{ const a=gComp(n.a),b=gComp(n.b); return (x,y,A)=>a(x,y,A)+b(x,y,A); }
@@ -2599,7 +2730,7 @@ canvas#board{touch-action:none;}
   const SUBCH={'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
   function toSup(str){ return [...String(str)].map(ch=>SUPCH[ch]||('^'+ch)).join(''); }
   function sub(n){ return String(n).split('').map(d=>SUBCH[d]||d).join(''); }
-  function prettyText(raw){ let s=(raw||''); s=s.replace(/\bpi\b/gi,'π').replace(/\btau\b/gi,'τ').replace(/\binf(ty)?\b/gi,'∞'); s=s.replace(/\*/g,'·').replace(/>=/g,'≥').replace(/<=/g,'≤'); s=s.replace(/sqrt\s*\(/gi,'√(').replace(/cbrt\s*\(/gi,'∛('); s=s.replace(/\^\(([^()]*)\)/g,(m,g)=>toSup(g)); s=s.replace(/\^(-?\d+(?:\.\d+)?)/g,(m,g)=>toSup(g)); s=s.replace(/\^([a-zA-Z])/g,(m,g)=>toSup(g)); return s; }
+  function prettyText(raw){ let s=(raw||''); s=s.replace(/\bpi\b/gi,'π').replace(/\btau\b/gi,'τ').replace(/\bphi\b/gi,'φ').replace(/\binf(ty)?\b/gi,'∞'); s=s.replace(/\blog_\{([^{}]+)\}/gi,(m,g)=>'log'+sub(g)).replace(/\blog_(\w+)/gi,(m,g)=>'log'+sub(g)).replace(/\blog(\d+)\b/gi,(m,g)=>'log'+sub(g)); s=s.replace(/\*/g,'·').replace(/>=/g,'≥').replace(/<=/g,'≤'); s=s.replace(/sqrt\s*\(/gi,'√(').replace(/cbrt\s*\(/gi,'∛('); s=s.replace(/\^\(([^()]*)\)/g,(m,g)=>toSup(g)); s=s.replace(/\^(-?\d+(?:\.\d+)?)/g,(m,g)=>toSup(g)); s=s.replace(/\^([a-zA-Z])/g,(m,g)=>toSup(g)); return s; }
   function domainText(g){ const d=(g.dom||'').trim(); if(!d) return 'ℝ'; return d.replace(/\binf(ty)?\b/gi,'∞').replace(/U/g,'∪').replace(/&/g,'∩'); }
   function fnMain(raw){ let m=(raw||'').trim(); const p=splitTop(gnorm(m),','); if(p){ m=p[0].trim(); } m=m.replace(/^([a-zA-Z]\w*)\(x\)\s*=\s*/,'').replace(/^y\s*=\s*/,''); return m; }
   function captionLines(){ const out=[]; gfns.forEach((g,i)=>{ if(g.hidden||!g.raw.trim()) return; const nm='f'+sub(i+1); const expr=prettyText(fnMain(g.raw)); const d=g.desc;
@@ -2674,7 +2805,7 @@ canvas#board{touch-action:none;}
   function bindEditor(inp,suggestions){
     inp._history={undo:[],redo:[]};
     inp.addEventListener('beforeinput',()=>{const h=inp._history;h.undo.push({value:inp.value,start:inp.selectionStart,end:inp.selectionEnd});if(h.undo.length>100)h.undo.shift();h.redo=[];});
-    const names=['sin','sen','cos','tan','asin','acos','atan','sqrt','cbrt','abs','ln','log','exp','floor','ceil'];
+    const names=['sin','sen','cos','tan','sec','csc','cot','tg','ctg','asin','arcsen','acos','atan','arctg','sinh','cosh','tanh','asinh','acosh','atanh','sqrt','raiz','cbrt','abs','ln','log','log2','log10','exp','floor','ceil','round','gamma','sign'];
     function complete(name,from,to){
       inp.setSelectionRange(from,to);smartInsert(inp,name+'(');suggestions.replaceChildren();
     }
@@ -2801,14 +2932,34 @@ canvas#board{touch-action:none;}
   document.getElementById('gp-ititle').addEventListener('input',e=>{ insTitle=e.target.value; });
 
   const gkbd=document.getElementById('gp-keyboard');
-  const KEYS=['7','8','9','+','sin(','cos(','tan(','^','4','5','6','-','sqrt(','ln(','log(','/','1','2','3','*','pi','x','y','a','0','.','(',')','≥','≤','=',',','abs(','cbrt(','e','⌫','↵'];
-  document.getElementById('gp-kbd').onclick=()=>gkbd.classList.toggle('open');
-  KEYS.forEach(k=>{ const b=document.createElement('button'); b.textContent= k==='sqrt('?'√(':k; b.onmousedown=e=>e.preventDefault(); b.onclick=()=>insertKey(k); gkbd.appendChild(b); });
-  function insertKey(k){
+  const KB=[
+    [['x²','square'],['xⁿ','^'],['√','sqrt('],['a⁄b','fraction'],['|x|','abs('],['▸□','next']],
+    [['sin','sin('],['cos','cos('],['tan','tan('],['ln','ln('],['log','log('],['eˣ','exp(']],
+    [['x','x'],['y','y'],['a','a'],['π','pi'],['e','e'],[',',',']],
+    [['7','7'],['8','8'],['9','9'],['+','+'],['−','-'],['⌫','back']],
+    [['4','4'],['5','5'],['6','6'],['×','*'],['÷','/'],['←','left']],
+    [['1','1'],['2','2'],['3','3'],['(','('],[')',')'],['→','right']],
+    [['0','0'],['.','.'],['=','='],['≥','≥'],['≤','≤'],['↵','enter']],
+  ];
+  function kcls(a){ if(/^[0-9.]$/.test(a))return 'n'; if(['+','-','*','/','=','≥','≤',','].includes(a))return 'o'; if(['x','y','a','pi','e'].includes(a))return 'v'; if(['back','left','right'].includes(a))return 'g'; if(a==='enter')return 'p'; return 'f'; }
+  function focusFirstInput(){ if(!(activeInput&&activeInput.isConnected)){ const f=fnlist.querySelector('.minput'); if(f) f.focus(); } }
+  document.getElementById('gp-kbd').onclick=()=>{ const open=gkbd.classList.toggle('open'); if(open) focusFirstInput(); };
+  gkbd.innerHTML='';
+  const kbHead=document.createElement('div'); kbHead.className='gp-kb-head';
+  kbHead.innerHTML='<span>Teclado matemático</span>';
+  const kbClose=document.createElement('button'); kbClose.className='gp-kb-close'; kbClose.setAttribute('aria-label','Cerrar teclado'); kbClose.textContent='✕'; kbClose.onpointerdown=e=>e.preventDefault(); kbClose.onclick=()=>gkbd.classList.remove('open');
+  kbHead.appendChild(kbClose); gkbd.appendChild(kbHead);
+  KB.forEach(row=>{ const r=document.createElement('div'); r.className='gp-kb-row'; row.forEach(([t,a])=>{ const b=document.createElement('button'); b.type='button'; b.className='k-'+kcls(a); b.textContent=t; b.title=t; b.onpointerdown=e=>e.preventDefault(); b.onclick=()=>insertKey(a); r.appendChild(b); }); gkbd.appendChild(r); });
+  function insertKey(a){
     let inp=(activeInput?.isConnected?activeInput:null)||fnlist.querySelector('.minput'); if(!inp) return;
-    if(k==='⌫'){ const a=inp.selectionStart??inp.value.length,b=inp.selectionEnd??a,start=a===b?Math.max(0,a-1):a;editValue(inp,inp.value.slice(0,start)+inp.value.slice(b),start); }
-    else if(k==='↵'){ gkbd.classList.remove('open'); }
-    else if(inp.classList.contains('minput')) smartInsert(inp,k); else insertIntoInput(inp,k);
+    inp.focus();
+    if(a==='back'){ const s=inp.selectionStart??inp.value.length,e=inp.selectionEnd??s,start=s===e?Math.max(0,s-1):s; editValue(inp,inp.value.slice(0,start)+inp.value.slice(e),start); }
+    else if(a==='enter'){ if(inp.classList.contains('minput')) document.getElementById('gp-add').click(); }
+    else if(a==='left'){ const p=Math.max(0,(inp.selectionStart??0)-1); try{inp.setSelectionRange(p,p);}catch(_){} }
+    else if(a==='right'){ const p=Math.min(inp.value.length,(inp.selectionEnd??inp.value.length)+1); try{inp.setSelectionRange(p,p);}catch(_){} }
+    else if(a==='next'){ let b=inp.selectionEnd??0,pos=inp.value.indexOf('□',b); if(pos<0)pos=inp.value.indexOf('□'); if(pos>=0){try{inp.setSelectionRange(pos,pos+1);}catch(_){}} }
+    else if(inp.classList.contains('minput')) smartInsert(inp,a);
+    else insertIntoInput(inp,a);
   }
   function initGrapher(){ compileAll(); renderFnList(); refreshRiemFn(); gpResize(); }
 
@@ -2823,7 +2974,7 @@ canvas#board{touch-action:none;}
     if(key==='png'){const a=document.createElement('a');a.download='grafica-calculo-integral.png';a.href=gcanvas.toDataURL('image/png');a.click();}
   };
   const help=document.createElement('details');help.className='gp-help';
-  help.innerHTML='<summary>Ayuda de escritura y ejemplos</summary><p>Selecciona texto y pulsa √, a/b o xⁿ para envolverlo. <b>Tab</b> recorre los espacios □ o completa una sugerencia. <b>Enter</b> acepta una sugerencia o agrega otra expresión. <b>Ctrl+Z</b> deshace la edición.</p><p>Prueba <code>2x+1</code>, <code>x(x+1)</code>, <code>sen(x)</code>, <code>x²</code>, <code>sqrt(x)</code>, <code>a*sin(x)</code> o <code>x^2+y^2=25</code>. Ángulos en <b>radianes</b>. Usa punto decimal. Escribe los argumentos entre paréntesis.</p><p>Dominio: <code>[0,3)</code>, <code>(−∞,2]</code> o <code>x&gt;0</code>. La vista matemática es una previsualización; edita en el campo superior.</p>';
+  help.innerHTML='<summary>Ayuda de escritura y ejemplos</summary><p>Selecciona texto y pulsa √, a/b o xⁿ para envolverlo. <b>Tab</b> recorre los espacios □ o completa una sugerencia. <b>Enter</b> acepta una sugerencia o agrega otra expresión. <b>Ctrl+Z</b> deshace la edición.</p><p><b>Notación admitida:</b> multiplicación implícita (<code>2x</code>, <code>x(x+1)</code>, <code>2sen(x)</code>); potencias <code>x^2</code>, <code>x²</code>, <code>x**2</code>; raíces <code>√x</code> o <code>sqrt(x)</code>, <code>∛x</code>; valor absoluto <code>|x|</code>; grados <code>sin(90°)</code>; fracción <code>a/b</code>.</p><p><b>Funciones:</b> sin cos tan · sec csc cot · sinh cosh tanh · asin acos atan · asinh acosh atanh · ln log log2 log10 · exp abs floor ceil round · gamma. En español: <code>sen tg ctg arcsen arctg raíz</code>. <b>Constantes:</b> <code>pi (π)</code>, <code>e</code>, <code>tau (τ)</code>, <code>phi (φ)</code>. También acepta LaTeX: <code>\\frac{1}{x}</code>, <code>x^{3}</code>, <code>2\\cdot x</code>.</p><p>Prueba <code>2x+1</code>, <code>sen(x)/x</code>, <code>e^(-x^2)</code>, <code>|x-1|</code>, <code>a·sin(x)</code> o <code>x^2+y^2=25</code>. Ángulos en <b>radianes</b> (usa <code>°</code> para grados). Punto decimal. Dominio: <code>[0,3)</code>, <code>(−∞,2]</code> o <code>x&gt;0</code>.</p>';
   document.querySelector('.gp-controls').append(help);
   const tablePanel=document.createElement('details');tablePanel.className='gp-help';
   tablePanel.innerHTML='<summary>Tabla de valores · funciones visibles</summary><p>Valores cercanos a x=a, con el parámetro actual.</p><div class="gp-values"></div>';
@@ -2929,6 +3080,11 @@ canvas#board{touch-action:none;}
   document.getElementById('sel-cut').onclick =()=>{ if(selCount()){ copySel(); deleteSel(); } };
   document.getElementById('sel-dup').onclick =()=>{ if(selCount()){ copySel(); pasteClip(); } };
   document.getElementById('sel-del').onclick =()=>{ if(selCount()) deleteSel(); };
+  document.getElementById('sel-paste').onclick=()=>pasteClip();
+  document.getElementById('paste-pill').onclick=()=>pasteClip();
+  window.addEventListener('storage', e=>{ if(e.key===CLIP_KEY) updatePasteUI(); });
+  window.addEventListener('focus', updatePasteUI);
+  updatePasteUI();
   document.getElementById('sel-crop').onclick=()=>enterCropMode();
   document.getElementById('crop-apply').onclick=()=>applyCrop();
   document.getElementById('crop-cancel').onclick=()=>cancelCrop();
