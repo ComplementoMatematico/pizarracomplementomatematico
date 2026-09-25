@@ -491,6 +491,13 @@ canvas#board{touch-action:none;}
 .sel-chip-fill.empty{background:linear-gradient(45deg,#ffffff26 25%,transparent 25%,transparent 75%,#ffffff26 75%),linear-gradient(45deg,#ffffff26 25%,transparent 25%,transparent 75%,#ffffff26 75%);background-size:8px 8px;background-position:0 0,4px 4px;}
 .sel-colorpop{position:absolute;top:calc(100% + 8px);right:0;z-index:40;display:grid;grid-template-columns:repeat(6,20px);gap:7px;padding:10px;border:1px solid #ffffff22;border-radius:11px;background:#0f1e40f7;box-shadow:var(--shadow);}
 .sel-colorpop[hidden]{display:none;}
+.sel-chip-border{background:transparent !important;box-shadow:inset 0 0 0 2px currentColor,0 0 0 1px rgba(0,0,0,.3);}
+.sel-chip-border:not(.empty){box-shadow:inset 0 0 0 3px var(--bc,#000),0 0 0 1px rgba(255,255,255,.4);}
+.sel-chip-border.empty{box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);background:linear-gradient(45deg,transparent 45%,#e0533f 45%,#e0533f 55%,transparent 55%) !important;}
+.sel-bw{grid-column:1/-1;display:flex;gap:5px;margin-top:3px;}
+.sel-bw button{flex:1;min-width:0;min-height:30px;padding:4px 2px;border-radius:7px;background:#ffffff10;color:#dfe7f5;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.sel-bw button i{display:block;width:70%;background:#eaeef7;border-radius:2px;}
+.sel-bw button.sel{background:var(--gold);color:var(--navy-deep);} .sel-bw button.sel i{background:var(--navy-deep);}
 .sel-colorpop .sel-pop-h{grid-column:1/-1;margin:0 0 1px;font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--ui-dim);font-weight:600;}
 .sel-colorpop button.sw{width:20px;height:20px;min-width:20px;min-height:20px;padding:0;border-radius:6px;border:2px solid transparent;transition:transform .1s;}
 .sel-colorpop button.sw:hover{transform:scale(1.14);background:inherit;}
@@ -561,6 +568,10 @@ canvas#board{touch-action:none;}
       <div class="sel-colorwrap" id="sel-fill-wrap">
         <button id="sel-fill-btn" class="sel-colorbtn" title="Color de fondo" aria-label="Color de fondo"><span class="sel-chip sel-chip-fill empty" id="sel-fill-chip"></span>Fondo</button>
         <div id="sel-fill-pop" class="sel-colorpop" hidden></div>
+      </div>
+      <div class="sel-colorwrap" id="sel-border-wrap">
+        <button id="sel-border-btn" class="sel-colorbtn" title="Borde de la imagen" aria-label="Borde de la imagen"><span class="sel-chip sel-chip-border empty" id="sel-border-chip"></span>Borde</button>
+        <div id="sel-border-pop" class="sel-colorpop" hidden></div>
       </div>
       <span class="sel-divider"></span>
       <button data-rotate="-1" title="Girar imágenes 90° a la izquierda" aria-label="Girar imágenes 90 grados a la izquierda">↶ 90°</button>
@@ -1675,10 +1686,14 @@ canvas#board{touch-action:none;}
     let sx=0,sy=0,sw=nw,sh=nh;
     if(im.crop){ sx=nw*im.crop.l; sy=nh*im.crop.t; sw=nw*Math.max(.001,1-im.crop.l-im.crop.r); sh=nh*Math.max(.001,1-im.crop.t-im.crop.b); }
     const rotation=((im.rotation||0)%360+360)%360;
-    if(!rotation){c.drawImage(el, sx,sy,sw,sh, im.x,im.y,im.w,im.h);return;}
+    if(!rotation){c.drawImage(el, sx,sy,sw,sh, im.x,im.y,im.w,im.h); drawImageBorder(c,im,im.x,im.y,im.w,im.h); return;}
     const odd=rotation===90||rotation===270,w=odd?im.h:im.w,h=odd?im.w:im.h;
-    c.save();c.translate(im.x+im.w/2,im.y+im.h/2);c.rotate(rotation*Math.PI/180);c.drawImage(el, sx,sy,sw,sh, -w/2,-h/2,w,h);c.restore();
+    c.save();c.translate(im.x+im.w/2,im.y+im.h/2);c.rotate(rotation*Math.PI/180);c.drawImage(el, sx,sy,sw,sh, -w/2,-h/2,w,h); drawImageBorder(c,im,-w/2,-h/2,w,h); c.restore();
   }
+  // Contorno de la imagen: im.border = {c: color, w: grosor en px de la hoja}. Se dibuja por dentro del borde.
+  const IMG_BORDER_W=1.2, IMG_BORDER_DEFAULT='#000000';
+  function drawImageBorder(c,im,x,y,w,h){ const b=im.border; if(!b) return; const lw=b.w||IMG_BORDER_W;
+    c.save(); c.lineWidth=lw; c.strokeStyle=b.c||IMG_BORDER_DEFAULT; c.lineJoin='miter'; c.setLineDash([]); c.globalAlpha=1; c.strokeRect(x+lw/2,y+lw/2,Math.max(0,w-lw),Math.max(0,h-lw)); c.restore(); }
   function refreshSelectionToolbar(){
     const bar=document.getElementById('selection-toolbar');if(!bar)return;
     bar.hidden=tool!=='select'||!selCount()||!!imgCropMode;
@@ -1687,9 +1702,12 @@ canvas#board{touch-action:none;}
     const cb=document.getElementById('sel-crop');
     if(cb){ cb.disabled = !(sel.images.length===1 && sel.strokes.length===0 && (((sel.images[0].rotation||0)%360)===0)); }
     const hasStroke=sel.strokes.length>0, hasShape=sel.strokes.some(s=>s.shape);
-    const sw=document.getElementById('sel-stroke-wrap'), fw=document.getElementById('sel-fill-wrap');
+    const sw=document.getElementById('sel-stroke-wrap'), fw=document.getElementById('sel-fill-wrap'), bw=document.getElementById('sel-border-wrap');
     if(sw) sw.style.display = hasStroke ? '' : 'none';               // contorno: hay trazos/figuras
     if(fw) fw.style.display = hasShape  ? '' : 'none';               // fondo: solo si hay figuras
+    if(bw) bw.style.display = sel.images.length ? '' : 'none';       // borde: solo si hay imágenes
+    { const ch=document.getElementById('sel-border-chip'); if(ch&&sel.images.length){ const cs=[...new Set(sel.images.map(im=>im.border?im.border.c:'none'))];
+        if(cs.length===1&&cs[0]==='none'){ ch.classList.add('empty'); } else { ch.classList.remove('empty'); ch.style.setProperty('--bc', cs.length===1&&cs[0]!=='none'? cs[0] : '#7c8aa5'); } } }
     if(bar.hidden) closeSelPops(); else updateSelChips(hasStroke,hasShape);
     updatePasteUI();
   }
@@ -1844,7 +1862,7 @@ canvas#board{touch-action:none;}
   function copySel(){ if(!selCount()) return;
     clipboard={ v:1,
       strokes: sel.strokes.map(s=>JSON.parse(JSON.stringify(s))),
-      images: sel.images.map(im=>({ x:im.x,y:im.y,w:im.w,h:im.h, rotation:im.rotation||0, crop:im.crop||null, src:imgStore[im.id] })) };
+      images: sel.images.map(im=>({ x:im.x,y:im.y,w:im.w,h:im.h, rotation:im.rotation||0, crop:im.crop||null, border:im.border||null, src:imgStore[im.id] })) };
     writeSharedClip(clipboard); updatePasteUI(); toast('Copiado ('+selCount()+')');
     clipMarker='pizarra-cm:'+Date.now(); preferSystemClip=false;
     try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(clipMarker).catch(()=>{}); }catch(_){} }
@@ -1853,7 +1871,7 @@ canvas#board{touch-action:none;}
     const cb=clipboard||readSharedClip(); if(!clipCount(cb)) return;
     const ns=(cb.strokes||[]).map(s=>JSON.parse(JSON.stringify(s)));
     const ni=(cb.images||[]).map(im=>{ const id='img'+(nextImgId++); const src=im.src||(im.id&&imgStore[im.id]); if(src){ imgStore[id]=src; imgEl(id); }
-      const o={id, x:im.x||0, y:im.y||0, w:im.w, h:im.h}; if(im.rotation)o.rotation=im.rotation; if(im.crop)o.crop=im.crop; return o; });
+      const o={id, x:im.x||0, y:im.y||0, w:im.w, h:im.h}; if(im.rotation)o.rotation=im.rotation; if(im.crop)o.crop=im.crop; if(im.border)o.border={...im.border}; return o; });
     let dx, dy, a=Infinity,b=Infinity,c=-Infinity,d=-Infinity;
     for(const s of ns) for(const p of s.pts){ a=Math.min(a,p.x);b=Math.min(b,p.y);c=Math.max(c,p.x);d=Math.max(d,p.y); }
     for(const im of ni){ a=Math.min(a,im.x);b=Math.min(b,im.y);c=Math.max(c,im.x+im.w);d=Math.max(d,im.y+im.h); }
@@ -1916,7 +1934,12 @@ canvas#board{touch-action:none;}
   for(const ev of ['gesturestart','gesturechange','gestureend']) document.addEventListener(ev, e=>{ if(e.target&&e.target.closest&&e.target.closest('canvas')) e.preventDefault(); }, {passive:false});
   canvas.addEventListener('pointerdown', e=>{
     if(imgCropMode){ cropPointerDown(e); return; }
-    { const p=localXY(e), w=screenToWorld(p.x,p.y); pasteAnchor={x:w.x,y:w.y,t:Date.now(),n:strokes.length,mark:tool==='select'}; if(pasteAnchor.mark) pasteMarkAnim(); }   // clic = punto de pegado (la marca solo con Seleccionar)
+    { // clic = punto de pegado · la marca «Ctrl+V pega aquí» solo aparece con DOBLE clic usando Seleccionar
+      const p=localXY(e), w=screenToWorld(p.x,p.y), now=Date.now(), L=lastBoardDown;
+      const dbl=!!(L&&now-L.t<400&&Math.hypot(p.x-L.sx,p.y-L.sy)<12);
+      pasteAnchor={x:w.x,y:w.y,t:now,n:dbl?L.n:strokes.length,mark:dbl&&tool==='select'};
+      lastBoardDown=dbl?null:{sx:p.x,sy:p.y,t:now,n:strokes.length};
+      if(pasteAnchor.mark) pasteMarkAnim(); }
     // Palma mientras escribe con lápiz: se ignora. «Ignorar dedos» solo impide DIBUJAR con el dedo: 2 dedos siguen haciendo zoom y 1 dedo desplaza.
     if(e.pointerType==='touch'&&(penActive!==null||performance.now()<penRejectUntil))return;
     if(e.pointerType==='pen'){
@@ -2178,7 +2201,27 @@ canvas#board{touch-action:none;}
   function markSelPalette(pop,val){ if(pop) pop.querySelectorAll('button').forEach(b=>b.classList.toggle('sel', b.dataset.val===val)); }
   function selCommonColor(){ if(!sel.strokes.length) return null; const c=sel.strokes[0].color; for(const s of sel.strokes){ if(s.color!==c) return null; } return c; }
   function selCommonFill(){ const sh=sel.strokes.filter(s=>s.shape); if(!sh.length) return null; const f=sh[0].fill||'none'; for(const s of sh){ if((s.fill||'none')!==f) return undefined; } return f; }  // 'none' | color | undefined(mezcla) | null(sin figuras)
-  function closeSelPops(except){ const a=document.getElementById('sel-stroke-pop'), b=document.getElementById('sel-fill-pop'); if(a&&a!==except)a.hidden=true; if(b&&b!==except)b.hidden=true; }
+  function closeSelPops(except){ for(const id of ['sel-stroke-pop','sel-fill-pop','sel-border-pop']){ const p=document.getElementById(id); if(p&&p!==except) p.hidden=true; } }
+  // ── Borde de imágenes: sin borde · colores · personalizado · grosor ──
+  (function initBorderUI(){
+    const btn=document.getElementById('sel-border-btn'), pop=document.getElementById('sel-border-pop'); if(!btn||!pop) return;
+    const apply=ch=>{ if(!sel.images.length) return; sel.images.forEach(ch); pushHistory(); render(); refreshSelectionToolbar(); sync(); };
+    const setColor=c=>apply(im=>{ im.border={c, w:(im.border&&im.border.w)||IMG_BORDER_W}; });
+    const setW=w=>apply(im=>{ im.border={c:(im.border&&im.border.c)||IMG_BORDER_DEFAULT, w}; });
+    const h=document.createElement('div'); h.className='sel-pop-h'; h.textContent='Borde de la imagen'; pop.append(h);
+    const none=document.createElement('button'); none.className='sel-none'; none.dataset.val='none'; none.textContent='Sin borde'; none.onclick=()=>apply(im=>{ delete im.border; }); pop.append(none);
+    for(const c of [IMG_BORDER_DEFAULT,...INKS.filter(c=>c!=='#17202e')]){ const b=document.createElement('button'); b.className='sw'; b.style.background=c; if(c==='#ffffff'||c==='#f2efe6') b.style.boxShadow='inset 0 0 0 1px rgba(0,0,0,.25)'; b.dataset.val=c; b.title=c==='#000000'?'Negro':c; b.onclick=()=>setColor(c); pop.append(b); }
+    const lab=document.createElement('label'); lab.className='sel-cust'; const inp=document.createElement('input'); inp.type='color'; inp.value=IMG_BORDER_DEFAULT; inp.oninput=e=>setColor(e.target.value); lab.append(inp,document.createTextNode('Personalizado')); pop.append(lab);
+    const row=document.createElement('div'); row.className='sel-bw';
+    for(const [t,w] of [['Fino',1.2],['Medio',2.4],['Grueso',4]]){ const b=document.createElement('button'); b.type='button'; b.dataset.w=w; b.innerHTML='<i style="height:'+Math.max(1,Math.round(w*0.9))+'px"></i>'+t; b.onclick=()=>setW(w); row.append(b); }
+    pop.append(row);
+    function sync(){ const cs=[...new Set(sel.images.map(im=>im.border?im.border.c:'none'))], ws=[...new Set(sel.images.map(im=>im.border?im.border.w:0))];
+      pop.querySelectorAll('[data-val]').forEach(b=>b.classList.toggle('sel',cs.length===1&&b.dataset.val===cs[0]));
+      row.querySelectorAll('button').forEach(b=>b.classList.toggle('sel',ws.length===1&&+b.dataset.w===ws[0])); }
+    btn.onclick=e=>{ e.stopPropagation(); const open=pop.hidden; closeSelPops(); if(!open) return;
+      if(sel.images.length&&sel.images.every(im=>!im.border)) setColor(IMG_BORDER_DEFAULT);        // primer toque: borde fino negro
+      pop.hidden=false; sync(); };
+  })();
   function updateSelChips(hasStroke,hasShape){
     const sc=document.getElementById('sel-stroke-chip'), fc=document.getElementById('sel-fill-chip');
     if(hasStroke&&sc){ const c=selCommonColor(); sc.style.background = c || 'linear-gradient(45deg,#7c8aa5,#c7d2e6)'; }  // gris = colores mezclados
