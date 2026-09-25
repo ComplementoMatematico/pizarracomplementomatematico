@@ -2,7 +2,13 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Pizarra CM" />
+<meta name="theme-color" content="#142449" />
+<link rel="apple-touch-icon" href="LogoCM.png" />
 <title>Complemento Matemático · Pizarra Infinita</title>
 <link rel="icon" type="image/png" href="LogoCM.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -42,6 +48,13 @@
   .brand .sep{ width:1px; height:22px; background:var(--navy-line); }
   .brand .sub{ font-size:12.5px; color:var(--ui-dim); white-space:nowrap; }
   .credit{ font-size:12px; color:var(--ui-dim); text-align:right; white-space:nowrap; }
+  .hdr-right{ display:flex; align-items:center; gap:12px; flex:0 0 auto; }
+  .hdr-btn{ width:36px; height:36px; border-radius:10px; display:grid; place-items:center; color:#eaeef7; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14); transition:background .15s; }
+  .hdr-btn[hidden]{ display:none; }
+  .hdr-btn:hover{ background:rgba(217,169,43,.25); } .hdr-btn svg{ width:19px; height:19px; }
+  @media (max-width:600px){ .hdr-btn{ width:32px; height:32px; } }
+  /* pantalla completa / app en la pantalla de inicio: respetar la muesca del teléfono */
+  header{ padding-top:env(safe-area-inset-top); }
   .credit strong{ color:#dfe7f5; font-weight:500; }
   @media (max-width:820px){ .brand .sub,.credit{ display:none; } .brand .mark{ font-size:18px; } .brand .mark .logo-mark{ height:26px; width:26px; } }
 
@@ -93,6 +106,19 @@
   }
   .grapher-btn svg{ width:22px; height:22px; }
   .grapher-btn:hover{ transform:translateY(-1px); box-shadow:0 10px 26px rgba(217,169,43,.5); }
+  /* Pantallas táctiles: sin «hover pegado». Al deslizar el dedo sobre la barra, los botones no quedan
+     iluminados como si estuvieran activos; solo la herramienta elegida se ve dorada. */
+  @media (hover:none), (pointer:coarse){
+    .tool:hover{ background:transparent; color:var(--ui-dim); }
+    .tool.active, .tool.active:hover{ background:var(--gold); color:var(--navy-deep); }
+    .tool:active{ background:rgba(255,255,255,.14); }
+    .grapher-btn:hover{ transform:none; box-shadow:0 6px 20px rgba(217,169,43,.35); }
+    .hdr-btn:hover{ background:rgba(255,255,255,.07); }
+    .zoombar button:hover{ background:transparent; color:var(--ui-dim); }
+  }
+  /* Interruptor «dedo dibuja / navega»: no es una herramienta, así que no se pinta dorado como una. */
+  .tool.finger-on{ color:var(--gold-soft); box-shadow:inset 0 0 0 2px var(--gold); }
+  .tool.finger-on::after{ content:'✎'; position:absolute; right:3px; bottom:1px; font-size:10px; color:var(--gold-soft); }
   .grapher-btn.active{ background:linear-gradient(180deg,#fff,#e9edf6); }
   .grapher-btn .tip{
     position:absolute; left:calc(100% + 10px); top:50%; transform:translateY(-50%);
@@ -515,7 +541,10 @@ canvas#board{touch-action:none;}
       <div class="meta">2026</div>
       <div class="sub">Pizarra infinita</div>
     </div>
-    <div class="credit"><strong>Complemento Matemático</strong></div>
+    <div class="hdr-right">
+      <div class="credit"><strong>Complemento Matemático</strong></div>
+      <button type="button" class="hdr-btn" id="btn-fs" aria-label="Pantalla completa" title="Pantalla completa"></button>
+    </div>
   </header>
 
   <div class="stage" id="stage">
@@ -1861,10 +1890,35 @@ canvas#board{touch-action:none;}
     clampCam(); updateZoomLabel(); render();
   }
 
+  /* ── Pantalla completa (tablet / celular / PC) ── */
+  (function(){ const b=document.getElementById('btn-fs'); if(!b) return; const root=document.documentElement;
+    const ENTER='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
+    const EXIT='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>';
+    const isFs=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+    const standalone=()=>window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+    const upd=()=>{ const on=isFs(); b.innerHTML=on?EXIT:ENTER; b.title=on?'Salir de pantalla completa':'Pantalla completa'; b.setAttribute('aria-label',b.title); b.hidden=standalone(); };
+    b.onclick=async()=>{
+      try{
+        if(isFs()){ await (document.exitFullscreen||document.webkitExitFullscreen).call(document); return; }
+        if(root.requestFullscreen) await root.requestFullscreen({navigationUI:'hide'});
+        else if(root.webkitRequestFullscreen) root.webkitRequestFullscreen();
+        else throw 0;
+      }catch(_){ toast('Este navegador no permite pantalla completa. En iPhone/iPad: botón Compartir → «Agregar a pantalla de inicio» y ábrela desde ese ícono: se verá a pantalla completa, como una app.'); }
+    };
+    const changed=()=>{ upd(); setTimeout(()=>window.dispatchEvent(new Event('resize')),80); };
+    document.addEventListener('fullscreenchange',changed); document.addEventListener('webkitfullscreenchange',changed);
+    upd(); })();
+  // El navegador no debe quedarse con los gestos sobre la hoja (en iPad/Safari ignora user-scalable=no
+  // y el pellizco haría zoom a toda la página, cancelando el nuestro).
+  for(const el of [canvas, document.getElementById('gp-canvas')]){ if(!el) continue;
+    el.addEventListener('touchstart', e=>{ if(e.touches.length>1) e.preventDefault(); }, {passive:false});
+    el.addEventListener('touchmove', e=>{ e.preventDefault(); }, {passive:false}); }
+  for(const ev of ['gesturestart','gesturechange','gestureend']) document.addEventListener(ev, e=>{ if(e.target&&e.target.closest&&e.target.closest('canvas')) e.preventDefault(); }, {passive:false});
   canvas.addEventListener('pointerdown', e=>{
     if(imgCropMode){ cropPointerDown(e); return; }
     { const p=localXY(e), w=screenToWorld(p.x,p.y); pasteAnchor={x:w.x,y:w.y,t:Date.now(),n:strokes.length,mark:tool==='select'}; if(pasteAnchor.mark) pasteMarkAnim(); }   // clic = punto de pegado (la marca solo con Seleccionar)
-    if(e.pointerType==='touch'&&(ignoreTouches||penActive!==null||performance.now()<penRejectUntil))return;
+    // Palma mientras escribe con lápiz: se ignora. «Ignorar dedos» solo impide DIBUJAR con el dedo: 2 dedos siguen haciendo zoom y 1 dedo desplaza.
+    if(e.pointerType==='touch'&&(penActive!==null||performance.now()<penRejectUntil))return;
     if(e.pointerType==='pen'){
       penActive=e.pointerId;penRejectUntil=performance.now()+500;
       for(const [id,p] of pointers)if(p.type==='touch')pointers.delete(id);
@@ -1875,6 +1929,7 @@ canvas#board{touch-action:none;}
       const ids=touchIds();
       if(ids.length>=2){ cancelDraw(); endPan(); imgAction=null; marquee=null; polyTap=null; startPinch(); return; }
       // un dedo
+      if(ignoreTouches){ startPan(e); return; }
       if(tool==='polygon'){ polyDown(e); return; }
       if(tool==='select'){ selectDown(e); return; }
       if(fingerDraw && tool!=='pan' && !spaceDown) startDraw(e); else startPan(e);
@@ -2179,7 +2234,7 @@ canvas#board{touch-action:none;}
   }
   smoothInput.oninput=()=>setInkSmoothing(smoothInput.value);
   document.querySelectorAll('[data-smooth]').forEach(b=>b.onclick=()=>setInkSmoothing(b.dataset.smooth));
-  document.getElementById('ink-only-pen').onchange=e=>{ignoreTouches=e.target.checked;if(ignoreTouches){if(drawId!==null&&pointers.get(drawId)?.type==='touch')cancelDraw();if(panId!==null&&pointers.get(panId)?.type==='touch')endPan();pinch=null;for(const [id,p] of pointers)if(p.type==='touch')pointers.delete(id);render();}};
+  document.getElementById('ink-only-pen').onchange=e=>{ignoreTouches=e.target.checked;if(ignoreTouches){if(drawId!==null&&pointers.get(drawId)?.type==='touch')cancelDraw();render();}};
   { const cb=document.getElementById('ink-to-shape'); if(cb){ inkToShape=cb.checked; cb.onchange=()=>{ inkToShape=cb.checked; if(!inkToShape)stopInkHold(); toast(inkToShape?'Entintar a forma: activado':'Entintar a forma: desactivado'); }; } }
   document.getElementById('ink-comfort-reset').onclick=()=>{penStyle='boligrafo';sizes.pen=2.5;setInkSmoothing(45);setTool('pen');document.querySelectorAll('[data-pen]').forEach(b=>b.classList.toggle('sel',b.dataset.pen===penStyle));updateSizeUI();toast('Bolígrafo cómodo: 2,5 px · estabilizador 45%');};
   // tipo de lápiz
@@ -5226,13 +5281,13 @@ canvas#board{touch-action:none;}
     mx>=insetRect.x && mx<=insetRect.x+insetRect.w && my>=insetRect.y && my<=insetRect.y+insetRect.h; }
   function gLocal(e){ const r=gcanvas.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
   function gZoomAt(mx,my,f){ const gx=sx2gx(mx), gy=sy2gy(my); gview.ppu=Math.max(6,Math.min(400,gview.ppu*f)); gview.cx=gx-(mx-gW()/2)/gview.ppu; gview.cy=gy+(my-gH()/2)/gview.ppu; drawGraph(); }
-  function startPinch(){ const [a,b]=[...gptrs.values()]; const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2}; gpinch={d0:Math.max(10,Math.hypot(a.x-b.x,a.y-b.y)), ppu0:gview.ppu, gx:sx2gx(mid.x), gy:sy2gy(mid.y)}; gdrag=null; gtap=null; }
+  function gStartPinch(){ const [a,b]=[...gptrs.values()]; const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2}; gpinch={d0:Math.max(10,Math.hypot(a.x-b.x,a.y-b.y)), ppu0:gview.ppu, gx:sx2gx(mid.x), gy:sy2gy(mid.y)}; gdrag=null; gtap=null; }
   gcanvas.addEventListener('pointerdown', e=>{
     const {x:mx,y:my}=gLocal(e); gLastPtr=e.pointerType;
     if(cropMode){ startCrop(mx,my,e.pointerId); return; }
     if(overInset(mx,my)){ insetDrag={dx:mx-insetRect.x, dy:my-insetRect.y}; gcanvas.setPointerCapture(e.pointerId); gcanvas.style.cursor='grabbing'; return; }
     gptrs.set(e.pointerId,{x:mx,y:my}); try{ gcanvas.setPointerCapture(e.pointerId); }catch(_){}
-    if(gptrs.size===2){ startPinch(); return; }
+    if(gptrs.size===2){ gStartPinch(); return; }
     if(gptrs.size>2) return;
     gdrag={x:e.clientX,y:e.clientY,cx:gview.cx,cy:gview.cy};
     gtap={x:mx,y:my,t:performance.now(),type:e.pointerType};
@@ -5966,7 +6021,7 @@ canvas#board{touch-action:none;}
     const btn=document.createElement('button');
     btn.className='tool'; btn.setAttribute('aria-label','Dedo: dibujar o navegar');
     btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M12 10V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M15 10.5V6a1.5 1.5 0 0 1 3 0v6a6 6 0 0 1-6 6h-1.5a5 5 0 0 1-4-2l-2.5-3.3a1.6 1.6 0 0 1 2.4-2L9 12"/></svg><span class="tip">Dedo: navegar</span>';
-    btn.onclick=()=>{ fingerDraw=!fingerDraw; btn.classList.toggle('active',fingerDraw); btn.querySelector('.tip').textContent = fingerDraw?'Dedo: dibujar':'Dedo: navegar'; toast(fingerDraw?'El dedo ahora dibuja (2 dedos = zoom)':'El dedo ahora desplaza'); };
+    btn.onclick=()=>{ fingerDraw=!fingerDraw; btn.classList.toggle('finger-on',fingerDraw); btn.querySelector('.tip').textContent = fingerDraw?'Dedo: dibujar':'Dedo: navegar'; toast(fingerDraw?'El dedo ahora dibuja (2 dedos = zoom)':'El dedo ahora desplaza'); };
     sb.insertBefore(btn, sb.querySelector('.hr'));
   }
 
