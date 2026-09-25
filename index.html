@@ -1110,7 +1110,7 @@ canvas#board{touch-action:none;}
     refreshSelectionToolbar(); render();
   }
   function cropPointerDown(e){
-    const {x,y}=localXY(e); canvas.setPointerCapture(e.pointerId);
+    const {x,y}=localXY(e); capturePtr(e.pointerId);
     const hid=cropHandleAt(x,y); const wp=screenToWorld(x,y);
     imgCropMode.drag = hid ? {handle:hid, sx0:wp.x, sy0:wp.y, CR0:{...imgCropMode.CR}} : null;
   }
@@ -1386,6 +1386,9 @@ canvas#board{touch-action:none;}
   let pinch=null;                 // {id1,id2,dist,mx,my}
   let fingerDraw=false;           // en táctil, ¿el dedo dibuja? (por defecto navega)
 
+  // setPointerCapture lanza error si el dedo/lápiz ya se levantó (toques muy rápidos en tablet): eso cortaba el
+  // manejador a medias y dejaba la herramienta trabada. Capturar es opcional, así que se ignora el error.
+  function capturePtr(id){ try{ canvas.setPointerCapture(id); }catch(_){} }
   function touchIds(){ return [...pointers.entries()].filter(([,p])=>p.type==='touch').map(([id])=>id); }
   function localXY(e){ const r=canvas.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; }
 
@@ -1437,7 +1440,7 @@ canvas#board{touch-action:none;}
   function inkPoint(e){const pos=localXY(e),wp=screenToWorld(pos.x,pos.y);return {x:wp.x,y:wp.y,p:inkPressure(e),t:e.timeStamp};}
   function startDraw(e){
     const {x,y}=localXY(e); const wp=screenToWorld(x,y);
-    canvas.setPointerCapture(e.pointerId);
+    capturePtr(e.pointerId);
     if(tool==='eraser'){ drawId=e.pointerId; drawRole='erase'; eraseAt(wp); return; }
     if(tool==='bold'){ drawId=e.pointerId; drawRole='bold'; boldTouched=new Set(); boldLast=null; boldAt(wp); return; }
     if(tool==='line'){
@@ -1583,7 +1586,7 @@ canvas#board{touch-action:none;}
   let polyTap=null;
   function w2sCss(p){ return { x:p.x*cam.scale+cam.x, y:p.y*cam.scale+cam.y }; }
   function polyDown(e){
-    canvas.setPointerCapture?.(e.pointerId);
+    capturePtr(e.pointerId);
     const p=localXY(e); polyTap={ id:e.pointerId, x0:p.x, y0:p.y, moved:false };
     if(!polyBuild) polyBuild={ pts:[], cursor:screenToWorld(p.x,p.y) };
   }
@@ -1741,7 +1744,7 @@ canvas#board{touch-action:none;}
 
   function selectDown(e){
     const {x,y}=localXY(e); const wp=screenToWorld(x,y);
-    canvas.setPointerCapture(e.pointerId); drawId=e.pointerId;
+    capturePtr(e.pointerId); drawId=e.pointerId;
     // Asa de rotación (solo figuras/trazos): tiene prioridad sobre las esquinas.
     const bbR=selectionBounds();
     if(bbR && sel.strokes.length && !sel.images.length){
@@ -1886,8 +1889,10 @@ canvas#board{touch-action:none;}
   }
   function deleteSel(){ if(!selCount()) return; strokes=strokes.filter(s=>!inSel(s,sel.strokes)); images=images.filter(im=>!inSel(im,sel.images)); clearSel(); pushHistory(); render(); refreshSelectionToolbar(); }
 
-  function startPan(e){ panId=e.pointerId; panLast=localXY(e); canvas.setPointerCapture(e.pointerId); stage.classList.add('panning'); }
-  function doPan(e){ const p=localXY(e); cam.x+=p.x-panLast.x; cam.y+=p.y-panLast.y; panLast=p; clampCam(); render(); }
+  function startPan(e){ panId=e.pointerId; panLast=localXY(e); capturePtr(e.pointerId); stage.classList.add('panning'); }
+  // Desplazar/pellizcar: a lo más un repintado por cuadro (la tablet manda 120–240 eventos/s y cada render completo la trababa).
+  let panFrame=0; function renderSoon(){ if(!panFrame) panFrame=requestAnimationFrame(()=>{ panFrame=0; render(); }); }
+  function doPan(e){ const p=localXY(e); cam.x+=p.x-panLast.x; cam.y+=p.y-panLast.y; panLast=p; clampCam(); renderSoon(); }
   function endPan(){ panId=null; stage.classList.remove('panning'); }
 
   function startPinch(){
@@ -1905,7 +1910,7 @@ canvas#board{touch-action:none;}
     cam.scale=ns;
     cam.x = nmx - wp.x*ns; cam.y = nmy - wp.y*ns;
     pinch.dist=nd; pinch.mx=nmx; pinch.my=nmy;
-    clampCam(); updateZoomLabel(); render();
+    clampCam(); updateZoomLabel(); renderSoon();
   }
 
   /* ── Pantalla completa (tablet / celular / PC) ── */
@@ -1940,6 +1945,11 @@ canvas#board{touch-action:none;}
       pasteAnchor={x:w.x,y:w.y,t:now,n:dbl?L.n:strokes.length,mark:dbl&&tool==='select'};
       lastBoardDown=dbl?null:{sx:p.x,sy:p.y,t:now,n:strokes.length};
       if(pasteAnchor.mark) pasteMarkAnim(); }
+    // Primer contacto (isPrimary): no hay otro dedo realmente apoyado → lo que quede registrado es un fantasma.
+    if(e.isPrimary&&e.pointerType==='touch'){ for(const [id,p] of [...pointers]) if(p.type==='touch'&&id!==e.pointerId) releaseGhost(id);
+      if(penActive!==null&&performance.now()-penLastT>1200){ releaseGhost(penActive); penActive=null; penRejectUntil=0; } }
+    else if(e.pointerType!=='touch') clearGhostPointers(e.pointerId);   // lápiz o mouse nuevo: nada más sigue apoyado
+    if(e.pointerType==='pen') penLastT=performance.now();
     // Palma mientras escribe con lápiz: se ignora. «Ignorar dedos» solo impide DIBUJAR con el dedo: 2 dedos siguen haciendo zoom y 1 dedo desplaza.
     if(e.pointerType==='touch'&&(penActive!==null||performance.now()<penRejectUntil))return;
     if(e.pointerType==='pen'){
@@ -1969,7 +1979,9 @@ canvas#board{touch-action:none;}
 
   canvas.addEventListener('pointermove', e=>{
     if(imgCropMode){ cropPointerMove(e); return; }
-    if(e.pointerType==='pen')penRejectUntil=performance.now()+350;
+    if(e.pointerType==='pen'){ penLastT=performance.now();
+      if(e.pointerId===penActive&&e.buttons===0){ releaseGhost(e.pointerId); penActive=null; return; }   // lápiz flotando: ya se levantó
+      penRejectUntil=performance.now()+350; }
     if(pointers.has(e.pointerId)){ const p=localXY(e); const rec=pointers.get(e.pointerId); rec.x=p.x; rec.y=p.y; }
     if(pinch && (e.pointerId===pinch.id1 || e.pointerId===pinch.id2)){ doPinch(); return; }
     if(e.pointerId===panId){ doPan(e); return; }
@@ -1978,8 +1990,14 @@ canvas#board{touch-action:none;}
     if(tool==='select' && drawId===null && !pinch && panId===null && e.pointerType==='mouse') updateSelectCursor(e);
   });
 
+  // En tablets el navegador a veces pierde un «pointerup» (dedo que sale por el borde, notificación, gesto del sistema…)
+  // y quedaba un dedo o lápiz «fantasma»: la pizarra creía que seguía apoyado y se quedaba pegada. Aquí se limpian.
+  let penLastT=0;
+  function releaseGhost(id){ onUp({pointerId:id, ghost:true}); }
+  function clearGhostPointers(keepId){ for(const id of [...pointers.keys()]) if(id!==keepId) releaseGhost(id);
+    if(penActive!==null&&penActive!==keepId){ penActive=null; penRejectUntil=0; } }
   function onUp(e){
-    if(imgCropMode){ cropPointerUp(e); return; }
+    if(imgCropMode){ if(e.ghost){ pointers.delete(e.pointerId); return; } cropPointerUp(e); return; }
     if(e.pointerId===penActive){penActive=null;penRejectUntil=performance.now()+350;}
     pointers.delete(e.pointerId);
     if(pinch && (e.pointerId===pinch.id1 || e.pointerId===pinch.id2)){
@@ -1991,11 +2009,16 @@ canvas#board{touch-action:none;}
       return;
     }
     if(e.pointerId===panId){ endPan(); return; }
-    if(tool==='polygon'){ polyUp(e); return; }
+    if(tool==='polygon'){ if(!e.ghost) polyUp(e); else if(e.pointerId===drawId) drawId=null; return; }
     if(e.pointerId===drawId){ if(imgAction || tool==='select') selectUp(); else endDraw(); return; }
   }
   canvas.addEventListener('pointerup', onUp);
   canvas.addEventListener('pointercancel', onUp);
+  // Si el navegador suelta la captura sin avisar con pointerup, cerrar ese puntero igual.
+  canvas.addEventListener('lostpointercapture', e=>{ if(pointers.has(e.pointerId)) onUp(e); });
+  // Al cambiar de app, bloquear la pantalla o salir de pantalla completa: nada queda «apoyado».
+  window.addEventListener('blur', ()=>clearGhostPointers(null));
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') clearGhostPointers(null); });
 
   /* ══════ Goma: parcial (de a poco) o por trozo completo ══════ */
   function eraseAt(wp){ if(eraserMode==='object') objectEraseAt(wp); else partialEraseAt(wp); }
@@ -2536,9 +2559,9 @@ canvas#board{touch-action:none;}
   document.getElementById('gp-max').onclick=()=>{ gpanel.classList.toggle('max'); requestAnimationFrame(gpResize); };
   document.getElementById('gp-reset').onclick=()=>{ gview={cx:0,cy:0,ppu:46}; drawGraph(); };
   const ghead=document.getElementById('gp-head');
-  ghead.addEventListener('pointerdown', e=>{ if(e.target.closest('button')) return; const r=gpanel.getBoundingClientRect(),sr=stage.getBoundingClientRect(),sx=e.clientX,sy=e.clientY; gpanel.classList.remove('max'); gpanel.style.right='auto'; gpanel.style.left=(r.left-sr.left)+'px';gpanel.style.top=(r.top-sr.top)+'px'; ghead.setPointerCapture(e.pointerId); const mv=ev=>{ gpanel.style.left=Math.max(0,Math.min(stage.clientWidth-gpanel.offsetWidth,r.left-sr.left+ev.clientX-sx))+'px';gpanel.style.top=Math.max(0,Math.min(stage.clientHeight-gpanel.offsetHeight,r.top-sr.top+ev.clientY-sy))+'px'; }; const up=()=>{ ghead.removeEventListener('pointermove',mv); ghead.removeEventListener('pointerup',up); }; ghead.addEventListener('pointermove',mv); ghead.addEventListener('pointerup',up); });
+  ghead.addEventListener('pointerdown', e=>{ if(e.target.closest('button')) return; const r=gpanel.getBoundingClientRect(),sr=stage.getBoundingClientRect(),sx=e.clientX,sy=e.clientY; gpanel.classList.remove('max'); gpanel.style.right='auto'; gpanel.style.left=(r.left-sr.left)+'px';gpanel.style.top=(r.top-sr.top)+'px'; try{ ghead.setPointerCapture(e.pointerId); }catch(_){} const mv=ev=>{ gpanel.style.left=Math.max(0,Math.min(stage.clientWidth-gpanel.offsetWidth,r.left-sr.left+ev.clientX-sx))+'px';gpanel.style.top=Math.max(0,Math.min(stage.clientHeight-gpanel.offsetHeight,r.top-sr.top+ev.clientY-sy))+'px'; }; const up=()=>{ ghead.removeEventListener('pointermove',mv); ghead.removeEventListener('pointerup',up); }; ghead.addEventListener('pointermove',mv); ghead.addEventListener('pointerup',up); });
   const grz=document.getElementById('gp-resize');
-  grz.addEventListener('pointerdown', e=>{ e.stopPropagation(); const r=gpanel.getBoundingClientRect(),sx=e.clientX,sy=e.clientY; grz.setPointerCapture(e.pointerId); const mv=ev=>{ gpanel.style.width=Math.max(360,r.width+ev.clientX-sx)+'px'; gpanel.style.height=Math.max(320,r.height+ev.clientY-sy)+'px'; gpResize(); }; const up=()=>{ grz.removeEventListener('pointermove',mv); grz.removeEventListener('pointerup',up); }; grz.addEventListener('pointermove',mv); grz.addEventListener('pointerup',up); });
+  grz.addEventListener('pointerdown', e=>{ e.stopPropagation(); const r=gpanel.getBoundingClientRect(),sx=e.clientX,sy=e.clientY; try{ grz.setPointerCapture(e.pointerId); }catch(_){} const mv=ev=>{ gpanel.style.width=Math.max(360,r.width+ev.clientX-sx)+'px'; gpanel.style.height=Math.max(320,r.height+ev.clientY-sy)+'px'; gpResize(); }; const up=()=>{ grz.removeEventListener('pointermove',mv); grz.removeEventListener('pointerup',up); }; grz.addEventListener('pointermove',mv); grz.addEventListener('pointerup',up); });
 
   // ── estado ──
   let gview={cx:0, cy:0, ppu:46};
@@ -3769,7 +3792,7 @@ canvas#board{touch-action:none;}
     c.drawImage(polCv,0,0,polCv.width,polCv.height,0,46,W,W);
     c.font=F; c.fillStyle='#16233a'; wrapped.forEach((t,i)=>c.fillText(t,pad,W+60+i*16));
     addImageFromSrc(cv.toDataURL('image/png')); toast('Circunferencia insertada en la pizarra'); };
-  { const head=polEl.querySelector('.pol-head'); head.addEventListener('pointerdown',e=>{ if(e.target.closest('button')) return; const r=polEl.getBoundingClientRect(), sr=polEl.offsetParent.getBoundingClientRect(), sx=e.clientX, sy=e.clientY; polEl.style.right='auto'; head.setPointerCapture(e.pointerId);
+  { const head=polEl.querySelector('.pol-head'); head.addEventListener('pointerdown',e=>{ if(e.target.closest('button')) return; const r=polEl.getBoundingClientRect(), sr=polEl.offsetParent.getBoundingClientRect(), sx=e.clientX, sy=e.clientY; polEl.style.right='auto'; try{ head.setPointerCapture(e.pointerId); }catch(_){}
       const mv=ev=>{ polEl.style.left=Math.max(0,r.left-sr.left+ev.clientX-sx)+'px'; polEl.style.top=Math.max(0,r.top-sr.top+ev.clientY-sy)+'px'; }; const up=()=>{ head.removeEventListener('pointermove',mv); head.removeEventListener('pointerup',up); };
       head.addEventListener('pointermove',mv); head.addEventListener('pointerup',up); }); }
 
@@ -5328,7 +5351,8 @@ canvas#board{touch-action:none;}
   gcanvas.addEventListener('pointerdown', e=>{
     const {x:mx,y:my}=gLocal(e); gLastPtr=e.pointerType;
     if(cropMode){ startCrop(mx,my,e.pointerId); return; }
-    if(overInset(mx,my)){ insetDrag={dx:mx-insetRect.x, dy:my-insetRect.y}; gcanvas.setPointerCapture(e.pointerId); gcanvas.style.cursor='grabbing'; return; }
+    if(e.isPrimary){ gptrs.clear(); gpinch=null; gdrag=null; insetDrag=null; }   // primer contacto: descartar dedos «fantasma» (pointerup perdido)
+    if(overInset(mx,my)){ insetDrag={dx:mx-insetRect.x, dy:my-insetRect.y}; try{ gcanvas.setPointerCapture(e.pointerId); }catch(_){} gcanvas.style.cursor='grabbing'; return; }
     gptrs.set(e.pointerId,{x:mx,y:my}); try{ gcanvas.setPointerCapture(e.pointerId); }catch(_){}
     if(gptrs.size===2){ gStartPinch(); return; }
     if(gptrs.size>2) return;
@@ -5367,6 +5391,7 @@ canvas#board{touch-action:none;}
   }
   gcanvas.addEventListener('pointerup', e=>{ if(cropMode && cropState){ endCrop(); return; } if(insetDrag){ insetDrag=null; gcanvas.style.cursor=''; return; } gEndPointer(e); });
   gcanvas.addEventListener('pointercancel', e=>{ insetDrag=null; gEndPointer(e); });
+  gcanvas.addEventListener('lostpointercapture', e=>{ if(gptrs.has(e.pointerId)) gEndPointer({pointerId:e.pointerId,type:'pointercancel'}); });
   gcanvas.addEventListener('pointerleave', e=>{ if(e.pointerType==='mouse'&&!gdrag&&gtrace){ gtrace=null; drawTrace(); } });
   gcanvas.addEventListener('wheel', e=>{ e.preventDefault(); const {x:mx,y:my}=gLocal(e); const k=e.ctrlKey?0.012:0.0025; gZoomAt(mx,my,Math.exp(-Math.max(-60,Math.min(60,e.deltaY))*k*(e.deltaMode===1?16:1))); if(gtrace){ gtrace=null; drawTrace(); } }, {passive:false});
 
