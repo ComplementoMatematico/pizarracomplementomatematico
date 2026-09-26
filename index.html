@@ -886,13 +886,15 @@ canvas#board{touch-action:none;}
   const stage  = document.getElementById('stage');
   const canvas = document.getElementById('board');
   const ctx    = canvas.getContext('2d');
-  // Capa estática para escritura fluida en tablet: durante un trazo NO se
-  // repinta toda la escena; se copia esta instantánea y solo se dibuja el
-  // trazo en curso encima.
-  const snapCanvas = document.createElement('canvas');
-  const snapCtx = snapCanvas.getContext('2d');
-  let inkSnapValid = false;
-  let DPR    = Math.min(window.devicePixelRatio || 1, 2.5);
+  // Capa transparente encima de la hoja para escritura fluida en tablet: durante un
+  // trazo la hoja NO se repinta ni se copia; solo se dibuja el trazo en curso en esta capa.
+  const inkCanvas = document.createElement('canvas');
+  inkCanvas.id = 'ink-layer'; inkCanvas.setAttribute('aria-hidden','true');
+  inkCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;display:block;';
+  canvas.after(inkCanvas);
+  const inkCtx = inkCanvas.getContext('2d');
+  let inkSnapValid = false, inkDirty = false;
+  let DPR    = Math.min(window.devicePixelRatio || 1, 2);
 
   /* ── Hoja tamaño carta (world px @96dpi) ── */
   const LETTER = { long: 1056, short: 816 };   // 11in y 8.5in
@@ -954,7 +956,7 @@ canvas#board{touch-action:none;}
   function fitScaleFor(vw){ const margin = vw>720 ? 120 : 24; return Math.min(MAX_SCALE, Math.max(MIN_SCALE, (vw-margin*2)/pageW())); }
   let lastViewW = 0, camFitted = true;          // camFitted: la hoja está "ajustada al ancho" (el usuario no ha hecho zoom)
   function resize(){
-    DPR=Math.min(window.devicePixelRatio||1,2.5);
+    DPR=Math.min(window.devicePixelRatio||1,2);
     const rail = railPx();
     const w = Math.max(50, stage.clientWidth - rail), h = stage.clientHeight;
     // Si la hoja estaba ajustada al ancho (p. ej. al girar la tablet), se reajusta al nuevo ancho
@@ -967,7 +969,10 @@ canvas#board{touch-action:none;}
     canvas.style.left = rail+'px';
     canvas.width  = Math.round(w*DPR);  canvas.height = Math.round(h*DPR);
     canvas.style.width = w+'px';        canvas.style.height = h+'px';
-    inkSnapValid=false;
+    inkCanvas.style.left = rail+'px';
+    inkCanvas.width = canvas.width;     inkCanvas.height = canvas.height;
+    inkCanvas.style.width = w+'px';     inkCanvas.style.height = h+'px';
+    inkSnapValid=false; inkDirty=false;
     clampCam(); render();
   }
 
@@ -981,8 +986,13 @@ canvas#board{touch-action:none;}
   }
 
   /* ══════ Render ══════ */
+  let selBarKey='', canvasSceneKey='', sceneVer=0;
+  function sceneKey(){ return strokes.length+'|'+images.length+'|'+sceneVer+'|'+hfSection+'|'+cam.x+'|'+cam.y+'|'+cam.scale+'|'+canvas.width+'|'+canvas.height+'|'+tool+'|'+selCount()+'|'+pageBg+'|'+gridType+'|'+showHF; }
   function render(){
-    refreshSelectionToolbar();
+    canvasSceneKey=''; if(!inkSnapValid) clearInkLayer();
+    // La barra de selección toca el DOM: solo se actualiza si cambió algo (no en cada cuadro al desplazar/mover).
+    const k=tool+'|'+sel.strokes.length+'|'+sel.images.length+'|'+(sel.strokes[0]?strokes.indexOf(sel.strokes[0]):-1)+'|'+!!imgCropMode;
+    if(k!==selBarKey) refreshSelectionToolbar();
     const w = canvas.width, h = canvas.height;
     ctx.setTransform(1,0,0,1,0,0);
     ctx.clearRect(0,0,w,h);
@@ -1004,9 +1014,14 @@ canvas#board{touch-action:none;}
     ctx.setTransform(cam.scale*DPR,0,0,cam.scale*DPR, cam.x*DPR, cam.y*DPR);
     const Npag = totalPages();
     drawHeaderFooter(Npag);
-    for(const im of images){ const el=imgEl(im.id); if(el.complete && el.naturalWidth) drawBoardImage(ctx,el,im); }
-    for(const s of strokes) drawStroke(ctx, s);
-    if(current) drawStroke(ctx, current);
+    // Solo se dibuja lo que cae dentro de la vista (con documentos largos, dibujar todo trababa la tablet).
+    const vx0=(-cam.x)/cam.scale, vy0=(-cam.y)/cam.scale, vx1=vx0+w/(DPR*cam.scale), vy1=vy0+h/(DPR*cam.scale), pad=40/cam.scale;
+    for(const im of images){
+      if(!im.rotation && (im.x>vx1+pad || im.x+im.w<vx0-pad || im.y>vy1+pad || im.y+im.h<vy0-pad)) continue;
+      if(im.rotation){ const r=Math.hypot(im.w,im.h)/2, cx=im.x+im.w/2, cy=im.y+im.h/2; if(cx-r>vx1+pad || cx+r<vx0-pad || cy-r>vy1+pad || cy+r<vy0-pad) continue; }
+      const el=imgEl(im.id); if(el.complete && el.naturalWidth) drawBoardImage(ctx,el,im); }
+    for(const s of strokes){ const b=strokeBounds(s); if(b.minX>vx1+pad || b.maxX<vx0-pad || b.minY>vy1+pad || b.maxY<vy0-pad) continue; drawStroke(ctx, s); }
+    if(current && !inkSnapValid) drawStroke(ctx, current);   // durante el trazo lo muestra la capa de tinta
     ctx.setTransform(1,0,0,1,0,0);
     ctx.restore();
 
@@ -1084,6 +1099,7 @@ canvas#board{touch-action:none;}
     if(pmA>0&&!marquee&&tool==='select'){ const sx=(pasteAnchor.x*cam.scale+cam.x)*DPR, sy=(pasteAnchor.y*cam.scale+cam.y)*DPR, r=7*DPR;
       ctx.save(); ctx.globalAlpha=pmA; ctx.strokeStyle='#d9a92b'; ctx.lineWidth=1.8*DPR; ctx.beginPath(); ctx.moveTo(sx-r,sy); ctx.lineTo(sx+r,sy); ctx.moveTo(sx,sy-r); ctx.lineTo(sx,sy+r); ctx.stroke();
       ctx.font=(11*DPR)+'px Inter,system-ui,sans-serif'; ctx.fillStyle='#a8790f'; ctx.textBaseline='top'; ctx.fillText('Ctrl+V pega aquí', sx+r+3*DPR, sy+3*DPR); ctx.restore(); }
+    if(!current && !imgCropMode && !polyBuild && pmA<=0 && !marquee) canvasSceneKey=sceneKey();
   }
 
   // 8 asas del recorte: 4 esquinas + 4 puntos medios de lado
@@ -1131,7 +1147,7 @@ canvas#board{touch-action:none;}
       if(hid.indexOf('s')>=0) B=clamp(B+dy, T+minH, F.y+F.h);
       imgCropMode.CR={x:L,y:T,w:R-L,h:B-T};
     }
-    render();
+    renderSoon();
   }
   function cropPointerUp(){ if(imgCropMode) imgCropMode.drag=null; }
   function applyCrop(){
@@ -1145,7 +1161,19 @@ canvas#board{touch-action:none;}
   function cancelCrop(){ exitCropMode(); render(); }
   function exitCropMode(){ imgCropMode=null; stage.classList.remove('cropping'); const ct=document.getElementById('crop-toolbar'); if(ct) ct.hidden=true; canvas.style.cursor=''; refreshSelectionToolbar(); }
 
-  function strokeBounds(s){ const src=s.shape?outlinePts(s):s.pts; let a=Infinity,b=Infinity,c=-Infinity,d=-Infinity; for(const p of src){ if(p.x<a)a=p.x; if(p.y<b)b=p.y; if(p.x>c)c=p.x; if(p.y>d)d=p.y; } const m=(s.size||2)/2; return {minX:a-m,minY:b-m,maxX:c+m,maxY:d+m}; }
+  // Caja de cada trazo en caché: render() la usa para dibujar solo lo visible. La firma detecta
+  // cambios hechos en el mismo objeto (mover, rotar, negrita) sin recorrer todos los puntos.
+  let boundsCache=new WeakMap();
+  function strokeSig(s){ const p=s.pts, n=p.length, a=p[0]||0, z=p[n-1]||0; return n+'|'+a.x+'|'+a.y+'|'+z.x+'|'+z.y+'|'+s.size+'|'+(s.rot||0)+'|'+(s.sides||0)+'|'+(s.shape||''); }
+  function strokeBoundsEntry(s){
+    const sig=strokeSig(s); let e=boundsCache.get(s);
+    if(e && e.pts===s.pts && e.sig===sig) return e;
+    const src=s.shape?outlinePts(s):s.pts; let a=Infinity,b=Infinity,c=-Infinity,d=-Infinity; for(const p of src){ if(p.x<a)a=p.x; if(p.y<b)b=p.y; if(p.x>c)c=p.x; if(p.y>d)d=p.y; }
+    let rawMaxY=0; for(const p of s.pts) if(p.y>rawMaxY) rawMaxY=p.y;
+    const m=(s.size||2)/2; e={pts:s.pts, sig, b:{minX:a-m,minY:b-m,maxX:c+m,maxY:d+m}, rawMaxY};
+    boundsCache.set(s,e); return e;
+  }
+  function strokeBounds(s){ return strokeBoundsEntry(s).b; }
   function selectionBounds(){
     if(!selCount()) return null;
     let a=Infinity,b=Infinity,c=-Infinity,d=-Infinity;
@@ -1186,11 +1214,13 @@ canvas#board{touch-action:none;}
       // puntos alineados al mundo, recortados a la banda de la hoja
       let startX = cam.x*DPR; while(startX > left) startX -= step; while(startX < left) startX += step;
       let startY = cam.y*DPR; while(startY > 0) startY -= step;
+      ctx.beginPath();                          // un solo trazado para todos los puntos (antes: un fill por punto)
       for(let x = startX; x < left+bw; x += step)
         for(let y = startY; y < h; y += step){
           if(y < 0) continue;
-          ctx.beginPath(); ctx.arc(x, y, r, 0, 6.29); ctx.fill();
+          ctx.moveTo(x+r, y); ctx.arc(x, y, r, 0, 6.2832);
         }
+      ctx.fill();
     } else {
       ctx.strokeStyle = gc; ctx.lineWidth = Math.max(1, DPR*0.8); ctx.beginPath();
       let startY = cam.y*DPR; while(startY > 0) startY -= step;
@@ -1375,8 +1405,14 @@ canvas#board{touch-action:none;}
 
   /* ══════ Historial ══════ */
   let history=[], hIndex=-1;
-  function pushHistory(){ history=history.slice(0,hIndex+1); history.push(JSON.stringify({strokes, images})); if(history.length>70) history.shift(); hIndex=history.length-1; if(sessionReady)persistSession(); }
-  function restore(i){ const st=JSON.parse(history[i]); strokes=st.strokes||[]; images=st.images||[]; clearSel(); imgAction=null; marquee=null; render(); if(sessionReady)persistSession(); }
+  // Cada paso guarda la lista de trazos como textos JSON reutilizados: un trazo que no cambió comparte
+  // el mismo texto en todos los pasos (antes se copiaba TODA la pizarra 70 veces y la tablet se quedaba sin memoria).
+  let strokeJsonCache=new WeakMap();
+  function strokeJson(s){ const sig=strokeSig(s)+'|'+s.color+'|'+(s.fill||'')+'|'+(s.alpha??'')+'|'+(s.bold?1:0); let e=strokeJsonCache.get(s);
+    if(e && e.pts===s.pts && e.sig===sig) return e.json;
+    const json=JSON.stringify(s); strokeJsonCache.set(s,{pts:s.pts,sig,json}); return json; }
+  function pushHistory(){ sceneVer++; history=history.slice(0,hIndex+1); history.push({s:strokes.map(strokeJson), i:JSON.stringify(images)}); if(history.length>70) history.shift(); hIndex=history.length-1; if(sessionReady)scheduleSessionSave(); }
+  function restore(i){ sceneVer++; const st=history[i]; strokes=st.s.map(j=>JSON.parse(j)); images=JSON.parse(st.i)||[]; clearSel(); imgAction=null; marquee=null; render(); if(sessionReady)scheduleSessionSave(); }
   function undo(){ if(hIndex>0){ hIndex--; restore(hIndex); } }
   function redo(){ if(hIndex<history.length-1){ hIndex++; restore(hIndex); } }
 
@@ -1414,26 +1450,25 @@ canvas#board{touch-action:none;}
     };
   }
   // END INK FILTER
-  // Toma una instantánea de la escena SIN el trazo actual (capa estática).
+  // Deja la hoja al día SIN el trazo actual (normalmente ya lo está: no se repinta) y activa la capa de tinta.
   function captureInkSnapshot(){
-    const cur=current; current=null; render(); current=cur;
-    if(snapCanvas.width!==canvas.width||snapCanvas.height!==canvas.height){ snapCanvas.width=canvas.width; snapCanvas.height=canvas.height; }
-    snapCtx.setTransform(1,0,0,1,0,0); snapCtx.clearRect(0,0,snapCanvas.width,snapCanvas.height);
-    snapCtx.drawImage(canvas,0,0);
-    inkSnapValid=true;
+    const cur=current; current=null;
+    if(sceneKey()!==canvasSceneKey || panFrame) render();
+    current=cur;
+    clearInkLayer(); inkSnapValid=true;
   }
-  // Repintado rápido durante el trazo: copia la capa estática + dibuja SOLO el
-  // trazo en curso (recortado a la hoja, igual que render()).
+  function clearInkLayer(){ if(!inkDirty) return; inkCtx.setTransform(1,0,0,1,0,0); inkCtx.clearRect(0,0,inkCanvas.width,inkCanvas.height); inkDirty=false; }
+  // Repintado rápido durante el trazo: solo el trazo en curso, en la capa de tinta
+  // (recortado a la hoja, igual que render()).
   function fastInkRender(){
     if(!inkSnapValid){ render(); return; }
-    const w=canvas.width, h=canvas.height;
-    ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,w,h);
-    ctx.drawImage(snapCanvas,0,0);
+    const w=inkCanvas.width, h=inkCanvas.height;
+    inkCtx.setTransform(1,0,0,1,0,0); inkCtx.clearRect(0,0,w,h);
     const left=cam.x*DPR, bw=pageW()*cam.scale*DPR;
-    ctx.save(); ctx.beginPath(); ctx.rect(left,0,bw,h); ctx.clip();
-    ctx.setTransform(cam.scale*DPR,0,0,cam.scale*DPR, cam.x*DPR, cam.y*DPR);
-    if(current) drawStroke(ctx,current);
-    ctx.setTransform(1,0,0,1,0,0); ctx.restore();
+    inkCtx.save(); inkCtx.beginPath(); inkCtx.rect(left,0,bw,h); inkCtx.clip();
+    inkCtx.setTransform(cam.scale*DPR,0,0,cam.scale*DPR, cam.x*DPR, cam.y*DPR);
+    if(current) drawStroke(inkCtx,current);
+    inkCtx.setTransform(1,0,0,1,0,0); inkCtx.restore(); inkDirty=true;
   }
   function requestInkRender(){if(!inkFrame)inkFrame=requestAnimationFrame(()=>{inkFrame=0;fastInkRender();});}
   function inkPressure(e){return e.pointerType==='pen'&&e.pressure>0?Math.max(.3,Math.min(1.7,e.pressure*2)):1;}
@@ -1500,7 +1535,7 @@ canvas#board{touch-action:none;}
     } else if(drawRole==='ink' && current && current.pts.length) strokes.push(current);
     current=null; drawId=null; drawRole=null; lineStart=null; inkConverted=false; pushHistory(); render();
   }
-  function cancelDraw(){if(inkFrame){cancelAnimationFrame(inkFrame);inkFrame=0;}inkFilter=null;inkSnapValid=false;stopInkHold();inkConverted=false;current=null; drawId=null; drawRole=null; }
+  function cancelDraw(){if(inkFrame){cancelAnimationFrame(inkFrame);inkFrame=0;}inkFilter=null;inkSnapValid=false;clearInkLayer();stopInkHold();inkConverted=false;current=null; drawId=null; drawRole=null; }
 
   /* ══════ Entintar a forma (estilo OneNote) ══════ */
   function stopInkHold(){ if(inkHoldTimer){ clearInterval(inkHoldTimer); inkHoldTimer=0; } }
@@ -1593,7 +1628,7 @@ canvas#board{touch-action:none;}
   function polyMove(e){
     const p=localXY(e); polyBuild.cursor=screenToWorld(p.x,p.y);
     if(polyTap && e.pointerId===polyTap.id && Math.hypot(p.x-polyTap.x0,p.y-polyTap.y0)>6) polyTap.moved=true;
-    render();
+    renderSoon();
   }
   function polyUp(e){
     if(!polyTap || e.pointerId!==polyTap.id){ return; }
@@ -1698,6 +1733,7 @@ canvas#board{touch-action:none;}
   function drawImageBorder(c,im,x,y,w,h){ const b=im.border; if(!b) return; const lw=b.w||IMG_BORDER_W;
     c.save(); c.lineWidth=lw; c.strokeStyle=b.c||IMG_BORDER_DEFAULT; c.lineJoin='miter'; c.setLineDash([]); c.globalAlpha=1; c.strokeRect(x+lw/2,y+lw/2,Math.max(0,w-lw),Math.max(0,h-lw)); c.restore(); }
   function refreshSelectionToolbar(){
+    selBarKey=tool+'|'+sel.strokes.length+'|'+sel.images.length+'|'+(sel.strokes[0]?strokes.indexOf(sel.strokes[0]):-1)+'|'+!!imgCropMode;
     const bar=document.getElementById('selection-toolbar');if(!bar)return;
     bar.hidden=tool!=='select'||!selCount()||!!imgCropMode;
     document.getElementById('selection-count').textContent=sel.strokes.length+' trazos · '+sel.images.length+' imágenes';
@@ -1788,17 +1824,17 @@ canvas#board{touch-action:none;}
   function selectMove(e){
     if(!imgAction) return;
     const {x,y}=localXY(e); const wp=screenToWorld(x,y);
-    if(imgAction.mode==='marquee'){ marquee.x1=wp.x; marquee.y1=wp.y; render(); return; }
+    if(imgAction.mode==='marquee'){ marquee.x1=wp.x; marquee.y1=wp.y; renderSoon(); return; }
     if(imgAction.mode==='rotate'){
       const C=imgAction.C; let theta=Math.atan2(wp.y-C.y, wp.x-C.x)-imgAction.startAng;
       if(shiftDown){ const step=Math.PI/12; theta=Math.round(theta/step)*step; }   // Shift = pasos de 15°
-      applyRotationStrokes(theta, C, imgAction.snap); imgAction.moved=true; render(); return;
+      applyRotationStrokes(theta, C, imgAction.snap); imgAction.moved=true; renderSoon(); return;
     }
     if(imgAction.mode==='resize'){
       const a=imgAction,denom=a.dx*a.dx+a.dy*a.dy;
       const factor=Math.max(.05,Math.min(20,((wp.x-a.anchor.x)*a.dx+(wp.y-a.anchor.y)*a.dy)/(denom||1)));
       if(Math.abs(factor-1)>.0001)a.moved=true;
-      transformSelectionSnapshot(a.snapshot,a.anchor,factor);render();return;
+      transformSelectionSnapshot(a.snapshot,a.anchor,factor);renderSoon();return;
     }
     // move (con umbral: un toque sin arrastre real no empuja el objeto)
     if(!imgAction.started){
@@ -1809,7 +1845,7 @@ canvas#board{touch-action:none;}
     const dx=wp.x-imgAction.ox, dy=wp.y-imgAction.oy; imgAction.ox=wp.x; imgAction.oy=wp.y;
     for(const im of sel.images){ im.x+=dx; im.y+=dy; }
     for(const s of sel.strokes){ for(const p of s.pts){ p.x+=dx; p.y+=dy; } }
-    render();
+    renderSoon();
   }
   function selectUp(){
     if(imgAction && imgAction.mode==='marquee'){
@@ -1820,8 +1856,9 @@ canvas#board{touch-action:none;}
       }
       marquee=null; imgAction=null; render(); drawId=null; return;
     }
-    if(imgAction && imgAction.moved && (imgAction.mode==='move'||imgAction.mode==='resize'||imgAction.mode==='rotate')) pushHistory();
-    imgAction=null; drawId=null;
+    const wasMoved=imgAction && imgAction.moved;
+    if(wasMoved && (imgAction.mode==='move'||imgAction.mode==='resize'||imgAction.mode==='rotate')) pushHistory();
+    imgAction=null; drawId=null; if(wasMoved) render();
   }
 
   /* ── Copiar / pegar / duplicar / borrar selección ── */
@@ -2044,11 +2081,11 @@ canvas#board{touch-action:none;}
       // Límite: cada trazo se pone en negrita UNA sola vez (se guarda su grosor original). Shift = quitar la negrita.
       if(shiftDown){ if(!s.bold) continue; s.size=s.boldBase||s.size; delete s.bold; delete s.boldBase; changed=true; }
       else { if(s.bold) continue; const base=s.size||2.5; s.boldBase=base; s.size=Math.min(BOLD_MAX, +(base*BOLD_FACTOR).toFixed(2)); s.bold=true; changed=true; } }
-    if(changed) render(); }
+    if(changed) renderSoon(); }
   function objectEraseAt(wp){
     const R=(sizes.eraser+6)/cam.scale, R2=R*R; let changed=false;
-    for(let i=strokes.length-1;i>=0;i--){ if(strokeNear(strokes[i],wp,R2)){ strokes.splice(i,1); changed=true; } }
-    if(changed) render();
+    for(let i=strokes.length-1;i>=0;i--){ if(nearBounds(strokes[i],wp,R) && strokeNear(strokes[i],wp,R2)){ strokes.splice(i,1); changed=true; } }
+    if(changed) renderSoon();
   }
 
   // parcial: elimina los puntos dentro del radio y parte el trazo en los tramos que sobreviven
@@ -2061,6 +2098,7 @@ canvas#board{touch-action:none;}
     const R=(sizes.eraser)/cam.scale, R2=R*R; let changed=false;
     const out=[];
     for(const s of strokes){
+      if(!nearBounds(s,wp,R)){ out.push(s); continue; }                              // lejos: ni se revisa punto a punto
       if(s.shape){ if(strokeNear(s,wp,R2)) changed=true; else out.push(s); continue; }   // formas: borrado por objeto
       const p=s.pts;
       // ¿toca este trazo?
@@ -2076,8 +2114,9 @@ canvas#board{touch-action:none;}
       }
       if(cur.length>=2) out.push({...s, pts:cur});
     }
-    if(changed){ strokes=out; render(); }
+    if(changed){ strokes=out; renderSoon(); }
   }
+  function nearBounds(s,wp,R){ const b=strokeBounds(s); return wp.x>=b.minX-R && wp.x<=b.maxX+R && wp.y>=b.minY-R && wp.y<=b.maxY+R; }
 
   function strokeNear(s,wp,R2){
     const p=outlinePts(s);
@@ -2101,14 +2140,14 @@ canvas#board{touch-action:none;}
     if(e.ctrlKey || e.metaKey){                          // zoom (Ctrl+rueda o pellizco de trackpad)
       zoomAt(x,y, e.deltaY<0 ? 1.08 : 1/1.08);
     } else {                                             // desplazamiento
-      cam.y -= e.deltaY; cam.x -= e.deltaX; clampCam(); render();
+      cam.y -= e.deltaY; cam.x -= e.deltaX; clampCam(); renderSoon();
     }
   }, {passive:false});
 
   function zoomAt(sx,sy,factor){
     const wp=screenToWorld(sx,sy);
     const ns=Math.min(MAX_SCALE,Math.max(MIN_SCALE, cam.scale*factor));
-    cam.x=sx-wp.x*ns; cam.y=sy-wp.y*ns; cam.scale=ns; camFitted=false; clampCam(); updateZoomLabel(); render();
+    cam.x=sx-wp.x*ns; cam.y=sy-wp.y*ns; cam.scale=ns; camFitted=false; clampCam(); updateZoomLabel(); renderSoon();
   }
   function updateZoomLabel(){ document.getElementById('zval').textContent = Math.round(cam.scale*100)+'%'; }
   document.getElementById('zoom-in').onclick  = ()=>zoomAt(viewW()/2, viewH()/3, 1.2);
@@ -2444,7 +2483,7 @@ canvas#board{touch-action:none;}
 
   /* ══════ Exportación ══════ */
   function contentBottom(){
-    let maxY=0; for(const s of strokes) for(const p of s.pts) if(p.y>maxY) maxY=p.y;
+    let maxY=0; for(const s of strokes){ const y=strokeBoundsEntry(s).rawMaxY; if(y>maxY) maxY=y; }
     for(const im of images) if(im.y+im.h>maxY) maxY=im.y+im.h;
     return maxY;
   }
@@ -6261,7 +6300,10 @@ canvas#board{touch-action:none;}
     if(ok)savedRevision=Math.max(savedRevision,revision);
     if(revision===saveRevision)sessionMessage(ok?'Guardado en este dispositivo · '+new Date(data.savedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'No se pudo guardar. Descarga un respaldo.',!ok);
   }
-  function scheduleSessionSave(){if(!sessionReady)return;clearTimeout(saveTimer);saveTimer=setTimeout(()=>persistSession(),180);}
+  // Guardar copia toda la pizarra (con imágenes): se hace en una pausa, nunca en medio de un trazo.
+  function scheduleSessionSave(){if(!sessionReady)return;clearTimeout(saveTimer);saveTimer=setTimeout(()=>{
+    if(drawId!==null||pinch||panId!==null){scheduleSessionSave();return;}
+    if(window.requestIdleCallback)requestIdleCallback(()=>persistSession(),{timeout:1500});else persistSession();},1200);}
   document.getElementById('session-download').onclick=()=>{
     const blob=new Blob([JSON.stringify(snapshotSession())],{type:'application/json'});
     const url=URL.createObjectURL(blob), a=document.createElement('a');a.href=url;a.download='pizarra-respaldo-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
