@@ -177,7 +177,7 @@
 
   /* ───────── Zoom ───────── */
   .zoombar{
-    position:absolute; bottom:18px; left:50%; transform:translateX(-50%); z-index:20;
+    position:absolute; bottom:66px; left:50%; transform:translateX(-50%); z-index:20;
     display:flex; align-items:center; gap:2px; background:rgba(20,30,52,.92);
     backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,.08);
     border-radius:12px; padding:5px; box-shadow:var(--shadow);
@@ -438,8 +438,33 @@
   .gp-resize{ position:absolute; right:0; bottom:0; width:18px; height:18px; cursor:nwse-resize; z-index:5; }
   .gp-resize::after{ content:''; position:absolute; right:4px; bottom:4px; width:8px; height:8px; border-right:2px solid var(--ui-dim); border-bottom:2px solid var(--ui-dim); opacity:.6; }
 
+  /* ───────── Barra de páginas (pasar hojas) ───────── */
+  .pager{
+    position:absolute; bottom:14px; left:50%; transform:translateX(-50%); z-index:21;
+    display:flex; align-items:center; gap:2px; background:rgba(20,30,52,.92);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,.08);
+    border-radius:14px; padding:4px; box-shadow:var(--shadow);
+  }
+  .pager button{ min-width:40px; height:40px; border-radius:10px; color:#dfe7f5; display:grid; place-items:center; transition:background .15s,color .15s; }
+  .pager button:hover{ background:rgba(255,255,255,.08); color:#fff; }
+  .pager button:disabled{ opacity:.35; cursor:default; background:none; }
+  .pager button svg{ width:20px; height:20px; }
+  .pager .pg-num{ min-width:76px; padding:0 8px; font-size:13.5px; font-variant-numeric:tabular-nums; }
+  .pager .pg-mode{ display:flex; gap:6px; padding:0 10px; font-size:12px; color:var(--ui-dim); }
+  .pager .pg-mode.on{ color:var(--navy-deep); background:var(--gold-soft); }
+  .pager .pg-sep{ width:1px; height:24px; background:rgba(255,255,255,.12); margin:0 3px; }
+  .pg-list{
+    position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
+    display:grid; grid-template-columns:repeat(5,44px); gap:6px; max-height:50vh; overflow:auto;
+    background:rgba(20,30,52,.97); border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:8px; box-shadow:var(--shadow);
+  }
+  .pg-list[hidden]{ display:none; }
+  .pg-list button{ width:44px; height:52px; border-radius:6px; background:#f4f6fa; color:#20324f; font-weight:600; font-size:13px; }
+  .pg-list button.cur{ outline:3px solid var(--gold); }
+  .pg-peek{ position:absolute; top:0; left:0; pointer-events:none; display:none; }
+
   .toast{
-    position:absolute; bottom:64px; left:50%; transform:translateX(-50%) translateY(10px); z-index:60;
+    position:absolute; bottom:112px; left:50%; transform:translateX(-50%) translateY(10px); z-index:60;
     background:var(--navy-deep); color:#eef2fb; font-size:13px; padding:9px 16px; border-radius:10px;
     box-shadow:var(--shadow); border:1px solid rgba(255,255,255,.08); opacity:0; pointer-events:none;
     transition:opacity .2s,transform .2s; max-width:80vw; text-align:center;
@@ -510,7 +535,8 @@ canvas#board{touch-action:none;}
 @media(max-width:600px){
  header{height:46px;padding:0 10px;}.brand{gap:8px;}.brand .mark{font-size:17px;}.brand .mark .logo-mark{height:24px;width:24px;}.brand .meta{font-size:9px;letter-spacing:1px;}.brand .sep{height:16px;}.stage{top:46px;}
  .sidebar{left:6px;padding:5px;border-radius:13px;max-height:calc(100% - 12px);gap:3px;}.sidebar .tool{width:38px;height:38px;}
- .zoombar{left:auto;right:8px;bottom:max(8px,env(safe-area-inset-bottom));transform:none;gap:2px;}.zoombar button{width:30px;}.zoombar .zval{min-width:44px;}
+ .zoombar{left:auto;right:8px;bottom:max(58px,calc(env(safe-area-inset-bottom) + 50px));transform:none;gap:2px;}
+ .pager{bottom:max(8px,env(safe-area-inset-bottom));}.pager button{min-width:36px;height:38px;}.pager .pg-num{min-width:60px;padding:0 4px;font-size:12.5px;}.pager .pg-mode span{display:none;}.zoombar button{width:30px;}.zoombar .zval{min-width:44px;}
  .selection-toolbar{top:6px;right:6px;max-width:calc(100% - 68px);padding:6px;gap:4px;}.selection-toolbar small{flex-basis:100%;}.selection-toolbar button{min-width:34px;min-height:36px;padding:5px 7px;}
  .toast{max-width:calc(100% - 24px);width:max-content;font-size:12px;}
  .grapher-panel,.grapher-panel.max{left:6px !important;right:6px !important;top:6px !important;bottom:6px !important;width:auto !important;height:auto !important;max-width:none;max-height:none;}
@@ -877,6 +903,16 @@ canvas#board{touch-action:none;}
       <div class="gp-resize" id="gp-resize"></div>
     </div>
 
+    <div class="pager" id="pager" role="toolbar" aria-label="Hojas">
+      <button id="pg-prev" title="Hoja anterior (←)" aria-label="Hoja anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
+      <button class="pg-num" id="pg-num" title="Ir a una hoja" aria-label="Ir a una hoja" aria-haspopup="true">1 / 1</button>
+      <button id="pg-next" title="Hoja siguiente (→)" aria-label="Hoja siguiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
+      <button id="pg-add" title="Agregar hoja después de esta" aria-label="Agregar hoja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      <span class="pg-sep"></span>
+      <button class="pg-mode" id="pg-mode" title="Pasar hojas deslizando hacia el lado (como un cuaderno)" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="4" width="10" height="16" rx="1.5"/><path d="M3 9 1 12l2 3M21 9l2 3-2 3"/></svg><span>Deslizar hojas</span></button>
+      <div class="pg-list" id="pg-list" hidden></div>
+    </div>
+
     <div class="toast" id="toast"></div>
   </div>
 
@@ -904,6 +940,9 @@ canvas#board{touch-action:none;}
 
   /* ── Cámara ── */
   let cam = { x:0, y:24, scale:1 };
+  // Modo «Deslizar hojas» (tipo cuaderno): se ve una hoja a la vez y se pasa de hoja hacia el lado.
+  let pageMode = false, curPage = 0, pageCount = 1;
+  let swipe=null, pageAnim=null, wheelAcc=0, wheelT=0, wheelLock=0, pagerKey='';
   const MIN_SCALE = 0.2, MAX_SCALE = 6;
   const GRID = 32;                     // separación world de la cuadrícula
 
@@ -961,7 +1000,7 @@ canvas#board{touch-action:none;}
     const w = Math.max(50, stage.clientWidth - rail), h = stage.clientHeight;
     // Si la hoja estaba ajustada al ancho (p. ej. al girar la tablet), se reajusta al nuevo ancho
     // conservando la línea de la hoja que estaba arriba.
-    if(lastViewW && Math.abs(w-lastViewW)>1 && camFitted){
+    if(lastViewW && Math.abs(w-lastViewW)>1 && camFitted && !pageMode){
       const topY=(0-cam.y)/cam.scale; cam.scale=fitScaleFor(w); cam.y=-topY*cam.scale;
       if(typeof updateZoomLabel==='function') updateZoomLabel();
     }
@@ -973,6 +1012,7 @@ canvas#board{touch-action:none;}
     inkCanvas.width = canvas.width;     inkCanvas.height = canvas.height;
     inkCanvas.style.width = w+'px';     inkCanvas.style.height = h+'px';
     inkSnapValid=false; inkDirty=false;
+    if(pageMode && camFitted && typeof fitPage==='function'){ cam.scale=pageFitScale(); if(typeof updateZoomLabel==='function') updateZoomLabel(); }
     clampCam(); render();
   }
 
@@ -982,12 +1022,24 @@ canvas#board{touch-action:none;}
     const pw = pageW()*cam.scale;
     if(pw <= vw)  cam.x = (vw - pw)/2;                     // centrar horizontalmente
     else          cam.x = Math.min(0, Math.max(vw - pw, cam.x));
+    if(pageMode){                                           // una hoja: no se sale de ella en vertical
+      const ph = pageH()*cam.scale, top0 = curPage*pageH()*cam.scale, m = 10;
+      if(ph <= vh - 2*m) cam.y = (vh - ph)/2 - top0;
+      else cam.y = Math.min(m - top0, Math.max(vh - m - ph - top0, cam.y));
+      return;
+    }
     cam.y = Math.min(24, cam.y);                            // no subir más allá del borde superior
+  }
+  // Rectángulo visible de la hoja en píxeles del lienzo (en modo hojas: solo la hoja actual).
+  function sheetRect(){
+    const left=cam.x*DPR, bw=pageW()*cam.scale*DPR, h=canvas.height;
+    if(!pageMode) return [left, 0, bw, h];
+    const top=(cam.y+curPage*pageH()*cam.scale)*DPR; return [left, top, bw, pageH()*cam.scale*DPR];
   }
 
   /* ══════ Render ══════ */
   let selBarKey='', canvasSceneKey='', sceneVer=0;
-  function sceneKey(){ return strokes.length+'|'+images.length+'|'+sceneVer+'|'+hfSection+'|'+cam.x+'|'+cam.y+'|'+cam.scale+'|'+canvas.width+'|'+canvas.height+'|'+tool+'|'+selCount()+'|'+pageBg+'|'+gridType+'|'+showHF; }
+  function sceneKey(){ return strokes.length+'|'+images.length+'|'+sceneVer+'|'+hfSection+'|'+cam.x+'|'+cam.y+'|'+cam.scale+'|'+canvas.width+'|'+canvas.height+'|'+tool+'|'+selCount()+'|'+pageBg+'|'+gridType+'|'+showHF+'|'+pageMode+'|'+curPage; }
   function render(){
     canvasSceneKey=''; if(!inkSnapValid) clearInkLayer();
     // La barra de selección toca el DOM: solo se actualiza si cambió algo (no en cada cuadro al desplazar/mover).
@@ -1004,12 +1056,16 @@ canvas#board{touch-action:none;}
     // banda de la hoja
     const left = cam.x*DPR;
     const bw   = pageW()*cam.scale*DPR;
+    const SR = sheetRect();
+    if(pageMode){                                           // sombra de la hoja suelta
+      ctx.save(); ctx.shadowColor='rgba(9,16,35,.28)'; ctx.shadowBlur=18*DPR; ctx.shadowOffsetY=4*DPR;
+      ctx.fillStyle=pageBg; ctx.fillRect(SR[0],SR[1],SR[2],SR[3]); ctx.restore();
+    }
     ctx.save();
-    ctx.beginPath(); ctx.rect(left, 0, bw, h); ctx.clip();
-    // sombra sutil de la hoja
+    ctx.beginPath(); ctx.rect(SR[0], SR[1], SR[2], SR[3]); ctx.clip();
     ctx.fillStyle = pageBg; ctx.fillRect(left, 0, bw, h);
     drawGrid(left, bw, h);
-    drawPageBreaks(left, bw, h);
+    if(!pageMode) drawPageBreaks(left, bw, h);
     // imágenes (debajo de los trazos), encabezado/pie, y trazos (clip a la hoja)
     ctx.setTransform(cam.scale*DPR,0,0,cam.scale*DPR, cam.x*DPR, cam.y*DPR);
     const Npag = totalPages();
@@ -1028,7 +1084,8 @@ canvas#board{touch-action:none;}
     // bordes de la hoja
     ctx.strokeStyle = isDark(pageBg) ? 'rgba(255,255,255,.14)' : 'rgba(20,35,70,.18)';
     ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(left+.5,0); ctx.lineTo(left+.5,h); ctx.moveTo(left+bw-.5,0); ctx.lineTo(left+bw-.5,h); ctx.stroke();
+    if(pageMode) ctx.strokeRect(SR[0]+.5, SR[1]+.5, SR[2]-1, SR[3]-1);
+    else { ctx.beginPath(); ctx.moveTo(left+.5,0); ctx.lineTo(left+.5,h); ctx.moveTo(left+bw-.5,0); ctx.lineTo(left+bw-.5,h); ctx.stroke(); }
 
     // overlay de selección (solo con la herramienta Seleccionar)
     if(tool==='select' && !imgCropMode){
@@ -1072,7 +1129,7 @@ canvas#board{touch-action:none;}
     if(imgCropMode){
       const {im,F,CR}=imgCropMode; const el=imgEl(im.id);
       ctx.save();
-      ctx.beginPath(); ctx.rect(left,0,bw,h); ctx.clip();
+      ctx.beginPath(); ctx.rect(...SR); ctx.clip();
       ctx.setTransform(cam.scale*DPR,0,0,cam.scale*DPR, cam.x*DPR, cam.y*DPR);
       if(el.complete&&el.naturalWidth) ctx.drawImage(el, F.x,F.y,F.w,F.h);   // imagen completa
       ctx.fillStyle='rgba(10,16,30,.55)';                                    // oscurecer márgenes recortados
@@ -1100,6 +1157,7 @@ canvas#board{touch-action:none;}
       ctx.save(); ctx.globalAlpha=pmA; ctx.strokeStyle='#d9a92b'; ctx.lineWidth=1.8*DPR; ctx.beginPath(); ctx.moveTo(sx-r,sy); ctx.lineTo(sx+r,sy); ctx.moveTo(sx,sy-r); ctx.lineTo(sx,sy+r); ctx.stroke();
       ctx.font=(11*DPR)+'px Inter,system-ui,sans-serif'; ctx.fillStyle='#a8790f'; ctx.textBaseline='top'; ctx.fillText('Ctrl+V pega aquí', sx+r+3*DPR, sy+3*DPR); ctx.restore(); }
     if(!current && !imgCropMode && !polyBuild && pmA<=0 && !marquee) canvasSceneKey=sceneKey();
+    updatePager();
   }
 
   // 8 asas del recorte: 4 esquinas + 4 puntos medios de lado
@@ -1256,7 +1314,7 @@ canvas#board{touch-action:none;}
   }
 
   /* ══════ Encabezado / pie de página (Times New Roman) ══════ */
-  function totalPages(){ return Math.max(1, Math.ceil((contentBottom()+1)/pageH())); }
+  function totalPages(){ return Math.max(1, pageCount, Math.ceil((contentBottom()+1)/pageH())); }
   function drawHeaderFooter(N){
     if(!showHF) return;
     const PW=pageW(), PH=pageH(), MX=54;
@@ -1464,8 +1522,7 @@ canvas#board{touch-action:none;}
     if(!inkSnapValid){ render(); return; }
     const w=inkCanvas.width, h=inkCanvas.height;
     inkCtx.setTransform(1,0,0,1,0,0); inkCtx.clearRect(0,0,w,h);
-    const left=cam.x*DPR, bw=pageW()*cam.scale*DPR;
-    inkCtx.save(); inkCtx.beginPath(); inkCtx.rect(left,0,bw,h); inkCtx.clip();
+    inkCtx.save(); inkCtx.beginPath(); inkCtx.rect(...sheetRect()); inkCtx.clip();
     inkCtx.setTransform(cam.scale*DPR,0,0,cam.scale*DPR, cam.x*DPR, cam.y*DPR);
     if(current) drawStroke(inkCtx,current);
     inkCtx.setTransform(1,0,0,1,0,0); inkCtx.restore(); inkDirty=true;
@@ -1475,6 +1532,7 @@ canvas#board{touch-action:none;}
   function inkPoint(e){const pos=localXY(e),wp=screenToWorld(pos.x,pos.y);return {x:wp.x,y:wp.y,p:inkPressure(e),t:e.timeStamp};}
   function startDraw(e){
     const {x,y}=localXY(e); const wp=screenToWorld(x,y);
+    if(pageMode && (wp.y<curPage*pageH() || wp.y>(curPage+1)*pageH())) return;   // fuera de la hoja: no se ve, no se dibuja
     capturePtr(e.pointerId);
     if(tool==='eraser'){ drawId=e.pointerId; drawRole='erase'; eraseAt(wp); return; }
     if(tool==='bold'){ drawId=e.pointerId; drawRole='bold'; boldTouched=new Set(); boldLast=null; boldAt(wp); return; }
@@ -1667,8 +1725,7 @@ canvas#board{touch-action:none;}
   function drawPolyBuild(c){
     if(!(tool==='polygon' && polyBuild && polyBuild.pts.length)) return;
     const pts=polyBuild.pts, cur=polyBuild.cursor;
-    const h=canvas.height, left=cam.x*DPR, bw=pageW()*cam.scale*DPR;
-    c.save(); c.beginPath(); c.rect(left,0,bw,h); c.clip();
+    c.save(); c.beginPath(); c.rect(...sheetRect()); c.clip();
     c.setTransform(cam.scale*DPR,0,0,cam.scale*DPR, cam.x*DPR, cam.y*DPR);
     c.lineJoin='round'; c.lineCap='round'; c.strokeStyle=ink; c.lineWidth=sizes.line;
     c.beginPath(); c.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) c.lineTo(pts[i].x,pts[i].y); c.stroke();
@@ -1926,11 +1983,19 @@ canvas#board{touch-action:none;}
   }
   function deleteSel(){ if(!selCount()) return; strokes=strokes.filter(s=>!inSel(s,sel.strokes)); images=images.filter(im=>!inSel(im,sel.images)); clearSel(); pushHistory(); render(); refreshSelectionToolbar(); }
 
-  function startPan(e){ panId=e.pointerId; panLast=localXY(e); capturePtr(e.pointerId); stage.classList.add('panning'); }
+  function startPan(e){ panId=e.pointerId; panLast=localXY(e); capturePtr(e.pointerId); stage.classList.add('panning');
+    swipe = (pageMode && !pageAnim && pageW()*cam.scale <= viewW()+2) ? {x0:panLast.x, y0:panLast.y, t0:performance.now(), mode:null, dx:0} : null; }
   // Desplazar/pellizcar: a lo más un repintado por cuadro (la tablet manda 120–240 eventos/s y cada render completo la trababa).
   let panFrame=0; function renderSoon(){ if(!panFrame) panFrame=requestAnimationFrame(()=>{ panFrame=0; render(); }); }
-  function doPan(e){ const p=localXY(e); cam.x+=p.x-panLast.x; cam.y+=p.y-panLast.y; panLast=p; clampCam(); renderSoon(); }
-  function endPan(){ panId=null; stage.classList.remove('panning'); }
+  function doPan(e){ const p=localXY(e);
+    if(swipe){
+      const dx=p.x-swipe.x0, dy=p.y-swipe.y0;
+      if(!swipe.mode){ if(Math.hypot(dx,dy)<10) return; swipe.mode = Math.abs(dx)>Math.abs(dy)*1.1 ? 'turn' : 'scroll'; if(swipe.mode==='scroll') panLast={x:swipe.x0,y:swipe.y0}; }
+      if(swipe.mode==='turn'){ swipeMove(dx); return; }
+    }
+    cam.x+=p.x-panLast.x; cam.y+=p.y-panLast.y; panLast=p; clampCam(); renderSoon(); }
+  function endPan(){ panId=null; stage.classList.remove('panning');
+    if(swipe && swipe.mode==='turn') swipeEnd(); else if(swipe && swipe.dir) swipeCancelPeek(); swipe=null; }
 
   function startPinch(){
     const ids=touchIds(); if(ids.length<2) return;
@@ -1997,7 +2062,7 @@ canvas#board{touch-action:none;}
     pointers.set(e.pointerId,{x:localXY(e).x,y:localXY(e).y,type:e.pointerType});
     if(e.pointerType==='touch'){
       const ids=touchIds();
-      if(ids.length>=2){ cancelDraw(); endPan(); imgAction=null; marquee=null; polyTap=null; startPinch(); return; }
+      if(ids.length>=2){ cancelDraw(); if(swipe&&swipe.mode==='turn'){ swipe.dx=0; } endPan(); imgAction=null; marquee=null; polyTap=null; startPinch(); return; }
       // un dedo
       if(ignoreTouches){ startPan(e); return; }
       if(tool==='polygon'){ polyDown(e); return; }
@@ -2139,6 +2204,12 @@ canvas#board{touch-action:none;}
     const {x,y}=localXY(e);
     if(e.ctrlKey || e.metaKey){                          // zoom (Ctrl+rueda o pellizco de trackpad)
       zoomAt(x,y, e.deltaY<0 ? 1.08 : 1/1.08);
+    } else if(pageMode){                                 // modo hojas: la rueda recorre la hoja y, en su borde, pasa de hoja
+      const d = Math.abs(e.deltaX)>Math.abs(e.deltaY) ? e.deltaX : e.deltaY, y0=cam.y;
+      if(Math.abs(e.deltaY)>=Math.abs(e.deltaX)){ cam.y -= e.deltaY; clampCam(); }
+      if(Math.abs(cam.y-y0)>0.5){ wheelAcc=0; renderSoon(); return; }
+      const now=performance.now(); if(now-wheelT>400) wheelAcc=0; wheelT=now; wheelAcc+=d*(e.deltaMode===1?16:1);
+      if(Math.abs(wheelAcc)>90 && now>wheelLock){ goToPage(curPage+(wheelAcc>0?1:-1)); wheelAcc=0; wheelLock=now+450; }
     } else {                                             // desplazamiento
       cam.y -= e.deltaY; cam.x -= e.deltaX; clampCam(); renderSoon();
     }
@@ -2156,6 +2227,7 @@ canvas#board{touch-action:none;}
 
   /* ══════ Ajustar ancho ══════ */
   function fitWidth(){
+    if(pageMode){ fitPage(); return; }
     cam.scale = fitScaleFor(viewW()); camFitted = true;
     cam.y = 24; clampCam(); updateZoomLabel(); render();
   }
@@ -2411,9 +2483,21 @@ canvas#board{touch-action:none;}
       const lib=await ensurePdfJs();
       const buf=await file.arrayBuffer();
       const doc=await lib.getDocument({data:buf}).promise;
-      const PW=pageW(), targetW=PW*0.86, x=(PW-targetW)/2;
+      const PW=pageW(), PH=pageH(), targetW=PW*0.86, x=(PW-targetW)/2;
       let y=Math.max(contentBottom()+50, 40); const firstY=y;
+      // Modo hojas: cada página del PDF va en su propia hoja, desde la primera hoja libre.
+      const firstSheet = contentBottom()>0 ? Math.ceil((contentBottom()+1)/PH) : 0;
       for(let n=1;n<=doc.numPages;n++){
+        if(pageMode){
+          const page=await doc.getPage(n); let vp=page.getViewport({scale:1});
+          const top=showHF?64:16, bot=showHF?64:16, boxW=PW-32, boxH=PH-top-bot;
+          const k=Math.min(boxW/vp.width, boxH/vp.height), w=vp.width*k, h=vp.height*k;
+          const sc=Math.min(3,(w*2)/vp.width); vp=page.getViewport({scale:sc});
+          const cv=document.createElement('canvas'); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
+          await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+          const sheet=firstSheet+n-1; addImageAt(cv.toDataURL('image/png'), (PW-w)/2, sheet*PH+top+(boxH-h)/2, w, h);
+          pageCount=Math.max(pageCount, sheet+1); continue;
+        }
         const page=await doc.getPage(n);
         let vp=page.getViewport({scale:1});
         const scale=Math.min(3,(targetW*2)/vp.width); vp=page.getViewport({scale});
@@ -2423,7 +2507,8 @@ canvas#board{touch-action:none;}
         addImageAt(cv.toDataURL('image/png'), x, y, w, h);
         y+=h+24;
       }
-      cam.y = 40 - firstY*cam.scale; clampCam(); pushHistory(); render();
+      if(pageMode){ curPage=firstSheet; fitPage(); pushHistory(); render(); }
+      else { cam.y = 40 - firstY*cam.scale; clampCam(); pushHistory(); render(); }
       toast(doc.numPages>1?`PDF insertado (${doc.numPages} páginas)`:'PDF insertado');
     }catch(err){ toast('No se pudo insertar el PDF (¿sin conexión?)'); }
   }
@@ -2533,7 +2618,7 @@ canvas#board{touch-action:none;}
     try{
       const jspdf = await ensureJsPDF();
       const PW=pageW(), PH=pageH(), es=2;
-      const pages=Math.max(1, Math.ceil((contentBottom()+40)/PH));
+      const pages=Math.max(1, pageCount, Math.ceil((contentBottom()+40)/PH));
       const pdf=new jspdf.jsPDF({ orientation: orient==='portrait'?'portrait':'landscape', unit:'pt', format:'letter' });
       const ptW = orient==='portrait'?612:792, ptH = orient==='portrait'?792:612;
       const off=document.createElement('canvas'); off.width=PW*es; off.height=PH*es; const oc=off.getContext('2d');
@@ -2581,6 +2666,10 @@ canvas#board{touch-action:none;}
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='v'){ return; }   // lo resuelve el evento «paste» (imagen del sistema o selección copiada)
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='d'){ if(selCount()){ copySel(); pasteClip(); e.preventDefault(); } return; }
     if((e.key==='Delete'||e.key==='Backspace') && selCount()){ deleteSel(); e.preventDefault(); return; }
+    if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&drawId===null){
+      if(e.key==='ArrowRight'||e.key==='PageDown'){ goToPage(curPageNow()+1); e.preventDefault(); return; }
+      if(e.key==='ArrowLeft'||e.key==='PageUp'){ goToPage(curPageNow()-1); e.preventDefault(); return; }
+    }
     if(e.key==='p')setTool('pen'); if(e.key==='m')setTool('marker'); if(e.key==='e')setTool('eraser'); if(e.key==='h')setTool('pan'); if(e.key==='v')setTool('select'); if(e.key==='l')setTool('line'); if(e.key==='b'&&!e.ctrlKey&&!e.metaKey) setTool('bold');
   });
   window.addEventListener('keyup', e=>{ if(e.key==='Shift') shiftDown=false; if(e.code==='Space'){ spaceDown=false; if(tool!=='pan') stage.classList.remove('pan'); } });
@@ -6249,7 +6338,7 @@ canvas#board{touch-action:none;}
     const used={};for(const im of images)used[im.id]=imgStore[im.id];
     lastSaveTime=Math.max(Date.now(),lastSaveTime+1);
     return {version:1,savedAt:lastSaveTime,strokes:current&&current.pts.length?[...strokes,current]:strokes,
-      images,imgStore:used,nextImgId,orient,cam:{...cam,vw:viewW()},gridType,pageBg,showHF,hfSection,
+      images,imgStore:used,nextImgId,orient,cam:{...cam,vw:viewW()},pageMode,curPage,pageCount,gridType,pageBg,showHF,hfSection,
       ink,penStyle,sizes:{...sizes},inkSmoothing,ignoreTouches,inkToShape,
       graph:{gfns:gfns.map(({raw,color,dom,hidden})=>({raw,color,dom,hidden})),PARAMS:{...PARAMS},gview:{...gview},xUnit:gXUnit}};
   }
@@ -6280,6 +6369,7 @@ canvas#board{touch-action:none;}
     document.querySelectorAll('[data-pen]').forEach(b=>b.classList.toggle('sel',b.dataset.pen===penStyle));
     bgWrap.querySelectorAll('button').forEach(b=>b.classList.toggle('sel',b.dataset.c===pageBg));
     if(s.graph){gfns=s.graph.gfns;PARAMS=s.graph.PARAMS||{};if(['real','rad','deg'].includes(s.graph.xUnit)){gXUnit=s.graph.xUnit;const xu=document.getElementById('gp-xunit');if(xu)xu.value=gXUnit;}if(s.graph.gview&&Number.isFinite(s.graph.gview.ppu)&&s.graph.gview.ppu>0)gview=s.graph.gview;compileAll();renderFnList();refreshRiemFn();}
+    pageCount=Math.max(1,Number(s.pageCount)||1); if(typeof s.pageMode==='boolean') pageMode=s.pageMode; curPage=Math.max(0,Number(s.curPage)||0);
     history=[];hIndex=-1;pushHistory();updateSizeUI();
     if(s.cam&&[s.cam.x,s.cam.y,s.cam.scale].every(Number.isFinite)&&s.cam.scale>0){cam={x:s.cam.x,y:s.cam.y,scale:Math.max(MIN_SCALE,Math.min(MAX_SCALE,s.cam.scale))};
       // Sesión guardada en otro tamaño de pantalla (celular ⇄ tablet ⇄ PC): reajustar al ancho actual.
@@ -6288,7 +6378,8 @@ canvas#board{touch-action:none;}
       camFitted = Math.abs(cam.scale-fit)<fit*0.03 || (Number.isFinite(s.cam.vw) && Math.abs(cam.scale-fitScaleFor(s.cam.vw))<cam.scale*0.03);
       if(camFitted){ const topY=-cam.y/cam.scale; cam.scale=fit; cam.y=-topY*fit; }
     }
-    clampCam();updateZoomLabel();inkSnapValid=false;render();if(graphReady)gpResize();
+    if(pageMode && camFitted) cam.scale=pageFitScale();
+    clampCam();updateZoomLabel();inkSnapValid=false;pagerKey='';render();if(graphReady)gpResize();
   }
   async function persistSession(emergency=false){
     if(!sessionReady)return;
@@ -6328,6 +6419,115 @@ canvas#board{touch-action:none;}
     catch(_){sessionMessage('No se pudo recuperar la sesión. Descarga un respaldo antes de cerrar.',true);}
     finally{loading.remove();}
   }
+
+  /* ══════ Hojas: pasar de hoja (tipo cuaderno) ══════ */
+  const peekCanvas=document.createElement('canvas'); peekCanvas.className='pg-peek'; peekCanvas.setAttribute('aria-hidden','true');
+  inkCanvas.after(peekCanvas); const peekCtx=peekCanvas.getContext('2d');
+  const pagerEl=document.getElementById('pager'), pgList=document.getElementById('pg-list');
+  function pageFitScale(){
+    const vw=viewW(), vh=viewH(), m=vw>720?28:10;
+    const fw=(vw-2*m)/pageW(), fh=(vh-2*m)/pageH();
+    // Hoja completa a la vista; si así quedaría muy chica (tablet horizontal), se ajusta al ancho y se recorre en vertical.
+    return Math.min(MAX_SCALE, Math.max(MIN_SCALE, fh>=fw*0.7 ? Math.min(fw,fh) : fw));
+  }
+  function fitPage(){ cam.scale=pageFitScale(); camFitted=true; cam.y=10-curPage*pageH()*cam.scale; clampCam(); updateZoomLabel(); render(); }
+  // Hoja que se está viendo (en modo continuo: la que ocupa el centro de la pantalla).
+  function curPageNow(){ if(pageMode) return curPage; return Math.max(0, Math.floor((viewH()*0.4-cam.y)/(pageH()*cam.scale))); }
+  function pageTotal(){ return Math.max(totalPages(), curPageNow()+1); }
+  function updatePager(){
+    const n=pageTotal(), k=curPageNow(), key=k+'/'+n+'/'+pageMode; if(key===pagerKey) return; pagerKey=key;
+    document.getElementById('pg-num').textContent=(k+1)+' / '+n;
+    document.getElementById('pg-prev').disabled = k<=0;
+    document.getElementById('pg-next').disabled = k>=n-1;
+    const mb=document.getElementById('pg-mode'); mb.classList.toggle('on',pageMode); mb.setAttribute('aria-pressed',String(pageMode));
+    if(!document.getElementById('pg-list').hidden) buildPageList();
+  }
+  // Pinta la hoja k (con el mismo zoom y encuadre) en la capa «peek», para mostrarla durante el deslizamiento.
+  function renderPeek(k){
+    const saved={y:cam.y, p:curPage}; cam.y=cam.y-(k-curPage)*pageH()*cam.scale; curPage=k; clampCam();
+    render(); peekCanvas.width=canvas.width; peekCanvas.height=canvas.height;
+    peekCanvas.style.left=canvas.style.left; peekCanvas.style.width=canvas.style.width; peekCanvas.style.height=canvas.style.height;
+    peekCtx.drawImage(canvas,0,0);
+    cam.y=saved.y; curPage=saved.p; render();
+    peekCanvas.style.display='block';
+  }
+  function setShift(x, dir){
+    const W=canvas.clientWidth, t=x?`translate3d(${x}px,0,0)`:'';
+    canvas.style.transform=t; inkCanvas.style.transform=t;
+    if(dir) peekCanvas.style.transform=`translate3d(${x+dir*W}px,0,0)`;
+  }
+  function swipeMove(dx){
+    const n=pageTotal(), dir = dx<0 ? 1 : -1, target=curPage+dir;
+    if(target<0 || target>=n){ swipe.dx=dx*0.25; swipe.dir=0; peekCanvas.style.display='none'; setShift(swipe.dx,0); return; }   // borde: resistencia
+    if(swipe.dir!==dir){ swipe.dir=dir; renderPeek(target); }
+    swipe.dx=dx; setShift(dx, dir);
+    const now=performance.now(); (swipe.hist||(swipe.hist=[])).push({t:now,dx}); while(swipe.hist.length>2 && now-swipe.hist[0].t>100) swipe.hist.shift();
+  }
+  function swipeCancelPeek(){ peekCanvas.style.display='none'; setShift(0,0); }
+  function swipeEnd(){
+    const W=canvas.clientWidth, dx=swipe.dx, dir=swipe.dir, h=swipe.hist||[];
+    // Un «golpe» rápido (aunque sea corto) también pasa la hoja, como en un cuaderno digital.
+    const v = h.length>1 ? (h[h.length-1].dx-h[0].dx)/Math.max(1,h[h.length-1].t-h[0].t) : 0;   // px/ms
+    const fling = Math.abs(dx)>30 && Math.abs(v)>0.35 && Math.sign(v)===Math.sign(dx);
+    if(dir && (Math.abs(dx)>W*0.18 || fling)) animateTurn(dir, dx);
+    else { if(!dir && Math.abs(dx)>8 && !pageAnim){ toast(dx<0?'Es la última hoja · toca + para agregar otra':'Es la primera hoja'); } animateShift(dx, 0, dir, 180, ()=>swipeCancelPeek()); }
+  }
+  function animateShift(from, to, dir, ms, done){
+    const t0=performance.now(); if(pageAnim) cancelAnimationFrame(pageAnim.raf);
+    pageAnim={raf:0};
+    const step=now=>{ const u=Math.min(1,(now-t0)/ms), e=1-Math.pow(1-u,3); setShift(from+(to-from)*e, dir);
+      if(u<1) pageAnim.raf=requestAnimationFrame(step); else { pageAnim=null; done(); } };
+    pageAnim.raf=requestAnimationFrame(step);
+  }
+  function commitPage(k){ cam.y=cam.y-(k-curPage)*pageH()*cam.scale; curPage=k; clampCam(); setShift(0,0); peekCanvas.style.display='none'; render(); }
+  function animateTurn(dir, fromDx){ const W=canvas.clientWidth, k=curPage+dir; animateShift(fromDx||0, -dir*W, dir, 240, ()=>commitPage(k)); }
+  function goToPage(k){
+    const n=pageTotal(); k=Math.max(0, Math.min(n-1, k)); const cur=curPageNow(); if(k===cur || pageAnim) return;
+    closePageList();
+    if(pageMode){
+      if(drawId!==null) return;
+      const dir=k>cur?1:-1; renderPeek(k); setShift(0,dir);
+      animateShift(0, -dir*canvas.clientWidth, dir, 250, ()=>commitPage(k));
+      return;
+    }
+    // Modo continuo: desplazamiento suave hasta el borde superior de la hoja k.
+    const y0=cam.y, y1=24-k*pageH()*cam.scale, t0=performance.now(); pageAnim={raf:0};
+    const step=now=>{ const u=Math.min(1,(now-t0)/280), e=1-Math.pow(1-u,3); cam.y=y0+(y1-y0)*e; clampCam(); render();
+      if(u<1) pageAnim.raf=requestAnimationFrame(step); else pageAnim=null; };
+    pageAnim.raf=requestAnimationFrame(step);
+  }
+  // Agrega una hoja en blanco después de la actual (lo que venía después se corre una hoja).
+  function addPageAfter(){
+    const k=curPageNow(), PH=pageH(), cut=(k+1)*PH, n=pageTotal();
+    let moved=false;
+    for(const st of strokes){ if(strokeBounds(st).minY >= cut-2){ for(const q of st.pts) q.y+=PH; moved=true; } }
+    for(const im of images){ if(im.y >= cut-2){ im.y+=PH; moved=true; } }
+    pageCount=n+1; pushHistory();
+    toast('Hoja '+(k+2)+' agregada'+(moved?' · las siguientes se corrieron':''));
+    pagerKey=''; goToPage(k+1); if(!pageMode) render();
+  }
+  function setPageMode(on){
+    if(on===pageMode) return;
+    const k=curPageNow(); pageMode=on; curPage=k; swipe=null;
+    if(on){ fitPage(); toast('Deslizar hojas: pasa de hoja deslizando un dedo hacia el lado'); }
+    else { cam.scale=fitScaleFor(viewW()); camFitted=true; cam.y=24-k*pageH()*cam.scale; clampCam(); updateZoomLabel(); render(); toast('Hojas continuas: desplázate hacia abajo'); }
+    try{ localStorage.setItem('cm-pizarra-pagemode', on?'1':'0'); }catch(_){}
+    scheduleSessionSave();
+  }
+  function buildPageList(){
+    const n=pageTotal(), k=curPageNow(); pgList.replaceChildren(); pgList.style.gridTemplateColumns=`repeat(${Math.min(5,n)},44px)`;
+    document.getElementById('toast').classList.remove('show');
+    for(let i=0;i<n;i++){ const b=document.createElement('button'); b.textContent=i+1; b.title='Ir a la hoja '+(i+1); if(i===k) b.className='cur'; b.onclick=()=>goToPage(i); pgList.append(b); }
+  }
+  function closePageList(){ pgList.hidden=true; }
+  document.getElementById('pg-prev').onclick=()=>goToPage(curPageNow()-1);
+  document.getElementById('pg-next').onclick=()=>goToPage(curPageNow()+1);
+  document.getElementById('pg-add').onclick=addPageAfter;
+  document.getElementById('pg-mode').onclick=()=>setPageMode(!pageMode);
+  document.getElementById('pg-num').onclick=()=>{ if(pgList.hidden){ buildPageList(); pgList.hidden=false; } else closePageList(); };
+  document.addEventListener('pointerdown', e=>{ if(!e.target.closest('#pager')) closePageList(); }, true);
+  pagerEl.addEventListener('pointerdown', e=>e.stopPropagation());
+  try{ if(localStorage.getItem('cm-pizarra-pagemode')==='1'){ pageMode=true; } }catch(_){}
 
   /* ══════ Init ══════ */
   window.addEventListener('resize', ()=>{ resize();gpanel.style.left='';gpanel.style.top='';gpanel.style.right='';gpanel.style.width='';gpanel.style.height='';if(graphReady && gpanel.classList.contains('open')) gpResize(); });
