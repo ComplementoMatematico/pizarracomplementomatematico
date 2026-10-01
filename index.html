@@ -651,6 +651,12 @@ canvas#board{touch-action:none;}
   .po-card.checked .po-thumb{outline-color:#d9a92b;}
   .po-new .po-thumb{display:flex;align-items:center;justify-content:center;background:transparent;border:2px dashed #ffffff40;box-shadow:none;color:#aabbd5;font-size:30px;}
   .pages-ov.selecting .po-new{display:none;}
+  .po-acts{display:flex;gap:4px;}
+  .pages-ov.selecting .po-acts{display:none;}
+  .po-act{width:34px;height:30px;border-radius:8px;display:grid;place-items:center;background:#ffffff10;color:#c6d2e8;}
+  .po-act svg{width:16px;height:16px;}
+  .po-act.off{opacity:.28;pointer-events:none;}
+  @media (hover:hover){ .po-act:hover{background:#ffffff24;color:#fff;} .po-act.del:hover{background:#c0392b;color:#fff;} }
   @media(max-width:600px){ .po-grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px;padding:12px 10px 30px;} .po-head{padding:10px;} .po-selbar{padding:8px 10px;} .po-selbar input{width:100px;} }
 </style>
 </head>
@@ -2187,11 +2193,13 @@ canvas#board{touch-action:none;}
   }
   function deleteSel(){ if(!selCount()) return; strokes=strokes.filter(s=>!inSel(s,sel.strokes)); images=images.filter(im=>!inSel(im,sel.images)); clearSel(); pushHistory(); render(); refreshSelectionToolbar(); }
 
-  function startPan(e){ panId=e.pointerId; panLast=localXY(e); capturePtr(e.pointerId); stage.classList.add('panning'); }
+  // panTouch: el arrastre es con el dedo. Solo así se pasa de página deslizando (en PC: flechas ‹ › o ← →).
+  let panTouch=false;
+  function startPan(e){ panId=e.pointerId; panLast=localXY(e); panTouch=e.pointerType==='touch'; capturePtr(e.pointerId); stage.classList.add('panning'); }
   // Desplazar/pellizcar: a lo más un repintado por cuadro (la tablet manda 120–240 eventos/s y cada render completo la trababa).
   let panFrame=0; function renderSoon(){ if(!panFrame) panFrame=requestAnimationFrame(()=>{ panFrame=0; render(); }); }
-  function doPan(e){ const p=localXY(e); let dx=p.x-panLast.x; if(isBook()) dx=bookAbsorb(dx);
-    cam.x+=dx; cam.y+=p.y-panLast.y; panLast=p; const bx=cam.x; clampCam(); if(isBook()) bookOver(bx-cam.x); renderSoon(); }
+  function doPan(e){ const p=localXY(e), slide=isBook()&&panTouch; let dx=p.x-panLast.x; if(slide) dx=bookAbsorb(dx);
+    cam.x+=dx; cam.y+=p.y-panLast.y; panLast=p; const bx=cam.x; clampCam(); if(slide) bookOver(bx-cam.x); renderSoon(); }
 
   /* ══════ Modo libro: deslizar, pasar de página, ir a una página ══════ */
   // Lo que el dedo mueve de más en horizontal (la hoja ya no puede correrse) desliza la hoja para pasar de página.
@@ -2252,7 +2260,7 @@ canvas#board{touch-action:none;}
     if(m==='book'){ bookPage=k; cam.scale=fitScaleFor(viewW()); camFitted=true; clampCam(); }
     else { cam.scale=fitScaleFor(viewW()); camFitted=true; cam.y=12-k*pageH()*cam.scale; clampCam(); }
     updateZoomLabel(); inkSnapValid=false; render();
-    toast(m==='book'?'Modo libro: desliza la hoja hacia el lado (con dos dedos si escribes con el dedo) o usa ‹ ›':'Desplazamiento vertical: las hojas van una bajo otra');
+    toast(m==='book'?(matchMedia('(pointer: coarse)').matches?'Modo libro: desliza la hoja con el dedo hacia el lado (con dos dedos si escribes con el dedo) o usa ‹ ›':'Modo libro: cambia de página con ‹ › o las flechas ← → del teclado'):'Desplazamiento vertical: las hojas van una bajo otra');
     if(sessionReady) scheduleSessionSave();
   }
   function endPan(){ panId=null; stage.classList.remove('panning'); }
@@ -2474,12 +2482,10 @@ canvas#board{touch-action:none;}
     const {x,y}=localXY(e);
     if(e.ctrlKey || e.metaKey){                          // zoom (Ctrl+rueda o pellizco de trackpad)
       zoomAt(x,y, e.deltaY<0 ? 1.08 : 1/1.08);
-    } else if(isBook()){                                 // libro: la rueda solo recorre la hoja; de página se pasa solo hacia los lados
+    } else if(isBook()){                                 // libro: la rueda/trackpad solo recorre la hoja (en PC se cambia de página con las flechas)
       const k=e.deltaMode===1?16:1, dX=e.deltaX*k, dY=e.deltaY*k;
       if(bookAnimRAF) return;
-      const rest=bookAbsorb(-dX); cam.x+=rest; cam.y-=dY;
-      const bx=cam.x; clampCam(); bookOver(bx-cam.x);    // deslizar de lado (trackpad) sí pasa de página
-      clearTimeout(wheelTimer); wheelTimer=setTimeout(()=>{ if(bookSlide) bookSettle(); },140);
+      cam.x-=dX; cam.y-=dY; clampCam();
       renderSoon();
     } else {                                             // desplazamiento
       cam.y -= e.deltaY; cam.x -= e.deltaX; clampCam(); renderSoon();
@@ -3018,13 +3024,41 @@ canvas#board{touch-action:none;}
     poObserver=('IntersectionObserver' in window)? new IntersectionObserver(es=>{ for(const en of es) if(en.isIntersecting){ poObserver.unobserve(en.target); poQueue.push(en.target); } poPump(); },{root:poGrid, rootMargin:'300px'}) : null;
     for(let k=0;k<N;k++){
       const card=document.createElement('button'); card.type='button'; card.className='po-card'+(k===cur?' current':''); card.dataset.k=k;
-      card.innerHTML='<div class="po-thumb" style="aspect-ratio:'+ratio+';background:'+pageBg+'"><canvas></canvas><span class="po-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span></div><span class="po-lbl">Página '+(k+1)+'</span>';
+      card.innerHTML='<div class="po-thumb" style="aspect-ratio:'+ratio+';background:'+pageBg+'"><canvas></canvas><span class="po-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span></div><span class="po-lbl">Página '+(k+1)+'</span>'+poActs(k,N);
       card.setAttribute('aria-label','Página '+(k+1));
       poGrid.append(card); if(poObserver) poObserver.observe(card); else poQueue.push(card);
     }
     const nw=document.createElement('button'); nw.type='button'; nw.className='po-card po-new'; nw.dataset.k=N;
     nw.innerHTML='<div class="po-thumb" style="aspect-ratio:'+ratio+'">+</div><span class="po-lbl">Página nueva</span>'; poGrid.append(nw);
     syncPoChecks(); poPump();
+  }
+  // Acciones de cada miniatura: mover antes / eliminar / mover después.
+  function poActs(k,N){ const b=(act,t,svg,off,cls)=>'<span class="po-act'+(cls?' '+cls:'')+(off?' off':'')+'" role="button" tabindex="0" data-act="'+act+'" title="'+t+'" aria-label="'+t+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+svg+'</svg></span>';
+    return '<span class="po-acts">'+b('left','Mover la página '+(k+1)+' antes','<path d="m15 5-7 7 7 7"/>',k===0)
+      +b('del','Eliminar la página '+(k+1),'<path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>',N<=1,'del')
+      +b('right','Mover la página '+(k+1)+' después','<path d="m9 5 7 7-7 7"/>',k>=N-1)+'</span>'; }
+  // Página a la que pertenece cada trazo/imagen: la de su centro.
+  function pageOfStroke(st){ const b=strokeBounds(st); return Math.max(0, Math.floor(((b.minY+b.maxY)/2)/pageH())); }
+  function pageOfImage(im){ return Math.max(0, Math.floor((im.y+im.h/2)/pageH())); }
+  function shiftItems(list,d){ const dy=d*pageH(); for(const it of list){ if(it.pts){ for(const q of it.pts) q.y+=dy; } else it.y+=dy; } }
+  function afterPageEdit(){ clearSel(); pushHistory(); if(isBook()){ bookPage=Math.min(bookPage, bookLast()); clampCam(); } render(); const sc=poGrid.scrollTop; buildPagesGrid(); poGrid.scrollTop=sc; }
+  function deletePage(k){
+    const N=poPageCount(); if(N<=1) return;
+    const sp=strokes.map(pageOfStroke), ip=images.map(pageOfImage);
+    if((sp.includes(k)||ip.includes(k)) && !confirm('¿Eliminar la página '+(k+1)+' con todo su contenido? Puedes deshacerlo con Ctrl+Z.')) return;
+    const later=[]; strokes=strokes.filter((st,i)=>{ if(sp[i]===k) return false; if(sp[i]>k) later.push(st); return true; });
+    images=images.filter((im,i)=>{ if(ip[i]===k) return false; if(ip[i]>k) later.push(im); return true; });
+    shiftItems(later,-1);
+    if(isBook()&&bookPage>k) bookSetPage(bookPage-1);
+    afterPageEdit();
+  }
+  function movePage(k,dir){
+    const j=k+dir; if(j<0||j>=poPageCount()) return; const a=[], b=[];
+    strokes.forEach(st=>{ const p=pageOfStroke(st); if(p===k) a.push(st); else if(p===j) b.push(st); });
+    images.forEach(im=>{ const p=pageOfImage(im); if(p===k) a.push(im); else if(p===j) b.push(im); });
+    shiftItems(a,dir); shiftItems(b,-dir);
+    if(isBook()){ if(bookPage===k) bookSetPage(j); else if(bookPage===j) bookSetPage(k); }
+    afterPageEdit();
   }
   // Las miniaturas se dibujan de a una, dejando respirar a la interfaz.
   function poPump(){ if(poBusy||!poQueue.length) return; poBusy=true;
@@ -3051,13 +3085,14 @@ canvas#board{touch-action:none;}
   poGrid.addEventListener('click', e=>{
     const card=e.target.closest('.po-card'); if(!card) return;
     if(poSkipClick){ poSkipClick=false; return; }
-    const k=+card.dataset.k;
+    const k=+card.dataset.k, act=e.target.closest('.po-act');
+    if(act){ if(act.dataset.act==='del') deletePage(k); else movePage(k, act.dataset.act==='left'?-1:1); return; }
     if(card.classList.contains('po-new')){ closePages(); goToPage(k,true); toast('Página '+(k+1)+' (nueva)'); return; }
     if(poSelecting){ poToggle(k, e.shiftKey); return; }
     closePages(); goToPage(k,true);
   });
   // Mantener presionada una miniatura (tablet) = empezar a seleccionar desde esa página.
-  poGrid.addEventListener('pointerdown', e=>{ const card=e.target.closest('.po-card:not(.po-new)'); if(!card||e.button>0) return;
+  poGrid.addEventListener('pointerdown', e=>{ const card=e.target.closest('.po-card:not(.po-new)'); if(!card||e.button>0||e.target.closest('.po-act')) return;
     poPress={card,x:e.clientX,y:e.clientY,t:setTimeout(()=>{ poPress=null; poSkipClick=true; if(!poSelecting){ poSelecting=true; poSel=new Set(); }
       poToggle(+card.dataset.k,false); if(navigator.vibrate) try{ navigator.vibrate(12); }catch(_){} },480)}; });
   const poCancelPress=()=>{ if(poPress){ clearTimeout(poPress.t); poPress=null; } };
