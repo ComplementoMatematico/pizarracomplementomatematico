@@ -455,12 +455,30 @@
   .pager .pg-sep{ width:1px; height:24px; background:rgba(255,255,255,.12); margin:0 3px; }
   .pg-list{
     position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
-    display:grid; grid-template-columns:repeat(5,44px); gap:6px; max-height:50vh; overflow:auto;
-    background:rgba(20,30,52,.97); border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:8px; box-shadow:var(--shadow);
+    width:min(600px, calc(100vw - 24px)); max-height:min(62vh, 640px); overflow:auto; overscroll-behavior:contain; touch-action:pan-y;
+    background:rgba(20,30,52,.97); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:10px 12px 12px; box-shadow:var(--shadow);
   }
   .pg-list[hidden]{ display:none; }
-  .pg-list button{ width:44px; height:52px; border-radius:6px; background:#f4f6fa; color:#20324f; font-weight:600; font-size:13px; }
-  .pg-list button.cur{ outline:3px solid var(--gold); }
+  .pager .pg-list button{ height:auto; min-width:0; }
+  .pager .pg-list .pg-acts button{ width:32px; height:30px; }
+  .pg-list .pgl-head{ display:flex; align-items:center; justify-content:space-between; color:#dfe7f5; font-size:13px; font-weight:600; margin-bottom:10px; }
+  .pg-list .pgl-head small{ color:var(--ui-dim); font-weight:400; }
+  .pg-list .pgl-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(108px,1fr)); gap:12px; }
+  .pg-card{ display:flex; flex-direction:column; align-items:center; gap:5px; }
+  .pg-card .pg-thumb{ width:100%; padding:0; border-radius:6px; background:#fff; overflow:hidden; line-height:0; box-shadow:0 1px 4px rgba(0,0,0,.35); outline:2px solid transparent; outline-offset:2px; }
+  .pg-card .pg-thumb canvas{ width:100%; height:auto; display:block; }
+  .pg-card.cur .pg-thumb{ outline-color:var(--gold); }
+  .pg-card .pg-lbl{ color:#dfe7f5; font-size:12px; font-variant-numeric:tabular-nums; }
+  .pg-card.cur .pg-lbl{ color:var(--gold-soft); font-weight:700; }
+  .pg-card .pg-acts{ display:flex; gap:3px; }
+  .pg-card .pg-acts button{ width:32px; height:30px; border-radius:7px; color:#c8d3e8; background:rgba(255,255,255,.06); display:grid; place-items:center; }
+  .pg-card .pg-acts button:hover{ background:rgba(255,255,255,.14); color:#fff; }
+  .pg-card .pg-acts button.pg-del:hover{ background:#c0392b; color:#fff; }
+  .pg-card .pg-acts button:disabled{ opacity:.3; cursor:default; background:rgba(255,255,255,.06); color:#c8d3e8; }
+  .pg-card .pg-acts svg{ width:16px; height:16px; }
+  .pg-newcard{ border:2px dashed rgba(255,255,255,.25); border-radius:6px; color:#dfe7f5; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:12px; aspect-ratio:var(--pg-ar,0.77); width:100%; }
+  .pg-newcard:hover{ border-color:var(--gold-soft); color:var(--gold-soft); }
+  .pg-newcard svg{ width:22px; height:22px; }
   .pg-peek{ position:absolute; top:0; left:0; pointer-events:none; display:none; }
 
   .toast{
@@ -905,11 +923,11 @@ canvas#board{touch-action:none;}
 
     <div class="pager" id="pager" role="toolbar" aria-label="Hojas">
       <button id="pg-prev" title="Hoja anterior (←)" aria-label="Hoja anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
-      <button class="pg-num" id="pg-num" title="Ir a una hoja" aria-label="Ir a una hoja" aria-haspopup="true">1 / 1</button>
+      <button class="pg-num" id="pg-num" title="Ver todas las hojas (ir, reordenar, eliminar)" aria-label="Ver todas las hojas" aria-haspopup="true">1 / 1</button>
       <button id="pg-next" title="Hoja siguiente (→)" aria-label="Hoja siguiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
       <button id="pg-add" title="Agregar hoja después de esta" aria-label="Agregar hoja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
       <span class="pg-sep"></span>
-      <button class="pg-mode" id="pg-mode" title="Pasar hojas deslizando hacia el lado (como un cuaderno)" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="4" width="10" height="16" rx="1.5"/><path d="M3 9 1 12l2 3M21 9l2 3-2 3"/></svg><span>Deslizar hojas</span></button>
+      <button class="pg-mode" id="pg-mode" title="Una hoja a la vez: flechas ‹ › (o deslizar el dedo en tablet/celular)" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="4" width="10" height="16" rx="1.5"/><path d="M3 9 1 12l2 3M21 9l2 3-2 3"/></svg><span>Hoja a hoja</span></button>
       <div class="pg-list" id="pg-list" hidden></div>
     </div>
 
@@ -942,7 +960,7 @@ canvas#board{touch-action:none;}
   let cam = { x:0, y:24, scale:1 };
   // Modo «Deslizar hojas» (tipo cuaderno): se ve una hoja a la vez y se pasa de hoja hacia el lado.
   let pageMode = false, curPage = 0, pageCount = 1;
-  let swipe=null, pageAnim=null, wheelAcc=0, wheelT=0, wheelLock=0, pagerKey='';
+  let swipe=null, pageAnim=null, pagerKey='';
   const MIN_SCALE = 0.2, MAX_SCALE = 6;
   const GRID = 32;                     // separación world de la cuadrícula
 
@@ -1469,8 +1487,8 @@ canvas#board{touch-action:none;}
   function strokeJson(s){ const sig=strokeSig(s)+'|'+s.color+'|'+(s.fill||'')+'|'+(s.alpha??'')+'|'+(s.bold?1:0); let e=strokeJsonCache.get(s);
     if(e && e.pts===s.pts && e.sig===sig) return e.json;
     const json=JSON.stringify(s); strokeJsonCache.set(s,{pts:s.pts,sig,json}); return json; }
-  function pushHistory(){ sceneVer++; history=history.slice(0,hIndex+1); history.push({s:strokes.map(strokeJson), i:JSON.stringify(images)}); if(history.length>70) history.shift(); hIndex=history.length-1; if(sessionReady)scheduleSessionSave(); }
-  function restore(i){ sceneVer++; const st=history[i]; strokes=st.s.map(j=>JSON.parse(j)); images=JSON.parse(st.i)||[]; clearSel(); imgAction=null; marquee=null; render(); if(sessionReady)scheduleSessionSave(); }
+  function pushHistory(){ sceneVer++; history=history.slice(0,hIndex+1); history.push({s:strokes.map(strokeJson), i:JSON.stringify(images), pc:pageCount}); if(history.length>70) history.shift(); hIndex=history.length-1; if(sessionReady)scheduleSessionSave(); }
+  function restore(i){ sceneVer++; const st=history[i]; strokes=st.s.map(j=>JSON.parse(j)); images=JSON.parse(st.i)||[]; if(st.pc) pageCount=st.pc; if(pageMode){ curPage=Math.min(curPage, Math.max(totalPages()-1,0)); clampCam(); } clearSel(); imgAction=null; marquee=null; render(); if(sessionReady)scheduleSessionSave(); }
   function undo(){ if(hIndex>0){ hIndex--; restore(hIndex); } }
   function redo(){ if(hIndex<history.length-1){ hIndex++; restore(hIndex); } }
 
@@ -1984,7 +2002,8 @@ canvas#board{touch-action:none;}
   function deleteSel(){ if(!selCount()) return; strokes=strokes.filter(s=>!inSel(s,sel.strokes)); images=images.filter(im=>!inSel(im,sel.images)); clearSel(); pushHistory(); render(); refreshSelectionToolbar(); }
 
   function startPan(e){ panId=e.pointerId; panLast=localXY(e); capturePtr(e.pointerId); stage.classList.add('panning');
-    swipe = (pageMode && !pageAnim && pageW()*cam.scale <= viewW()+2) ? {x0:panLast.x, y0:panLast.y, t0:performance.now(), mode:null, dx:0} : null; }
+    // Pasar de hoja deslizando: solo con el dedo (celular/tablet). En PC se usan las flechas.
+    swipe = (pageMode && e.pointerType==='touch' && !pageAnim && pageW()*cam.scale <= viewW()+2) ? {x0:panLast.x, y0:panLast.y, t0:performance.now(), mode:null, dx:0} : null; }
   // Desplazar/pellizcar: a lo más un repintado por cuadro (la tablet manda 120–240 eventos/s y cada render completo la trababa).
   let panFrame=0; function renderSoon(){ if(!panFrame) panFrame=requestAnimationFrame(()=>{ panFrame=0; render(); }); }
   function doPan(e){ const p=localXY(e);
@@ -2204,12 +2223,8 @@ canvas#board{touch-action:none;}
     const {x,y}=localXY(e);
     if(e.ctrlKey || e.metaKey){                          // zoom (Ctrl+rueda o pellizco de trackpad)
       zoomAt(x,y, e.deltaY<0 ? 1.08 : 1/1.08);
-    } else if(pageMode){                                 // modo hojas: la rueda recorre la hoja y, en su borde, pasa de hoja
-      const d = Math.abs(e.deltaX)>Math.abs(e.deltaY) ? e.deltaX : e.deltaY, y0=cam.y;
-      if(Math.abs(e.deltaY)>=Math.abs(e.deltaX)){ cam.y -= e.deltaY; clampCam(); }
-      if(Math.abs(cam.y-y0)>0.5){ wheelAcc=0; renderSoon(); return; }
-      const now=performance.now(); if(now-wheelT>400) wheelAcc=0; wheelT=now; wheelAcc+=d*(e.deltaMode===1?16:1);
-      if(Math.abs(wheelAcc)>90 && now>wheelLock){ goToPage(curPage+(wheelAcc>0?1:-1)); wheelAcc=0; wheelLock=now+450; }
+    } else if(pageMode){                                 // modo hojas: la rueda solo recorre la hoja (se cambia de hoja con las flechas)
+      cam.y -= e.deltaY; clampCam(); renderSoon();
     } else {                                             // desplazamiento
       cam.y -= e.deltaY; cam.x -= e.deltaX; clampCam(); renderSoon();
     }
@@ -2585,7 +2600,7 @@ canvas#board{touch-action:none;}
       const gc = isDark(pageBg)?'rgba(255,255,255,.10)':'rgba(30,50,90,.13)';
       const oy = (((-yTop*es)%step)+step)%step;
       if(gridType==='dots'){ c.fillStyle=gc; const r=Math.max(1,es*1.05);
-        for(let x=0; x<W; x+=step) for(let y=oy; y<H; y+=step){ c.beginPath(); c.arc(x,y,r,0,6.29); c.fill(); }
+        c.beginPath(); for(let x=0; x<W; x+=step) for(let y=oy; y<H; y+=step){ c.moveTo(x+r,y); c.arc(x,y,r,0,6.2832); } c.fill();
       } else { c.strokeStyle=gc; c.lineWidth=Math.max(1,es*.8); c.beginPath();
         for(let y=oy; y<H; y+=step){ c.moveTo(0,y+.5); c.lineTo(W,y+.5); }
         if(gridType==='squares') for(let x=0; x<=W; x+=step){ c.moveTo(x+.5,0); c.lineTo(x+.5,H); }
@@ -2601,8 +2616,9 @@ canvas#board{touch-action:none;}
     // encabezado/pie + imágenes + trazos
     c.translate(0,-yTop*es); c.scale(es,es);
     if(showHF){ const N=totalPages(), PW=pageW(); const k0=Math.floor(yTop/PH), k1=Math.floor((yTop + H/es - 1)/PH); for(let k=k0;k<=k1;k++) paintHF(c, k*PH, PW, PH, 54, k+1, N); }
-    for(const im of images){ const el=imgEl(im.id); if(el.complete && el.naturalWidth) drawBoardImage(c,el,im); }
-    for(const s of strokes) drawStroke(c,s);
+    const yBot=yTop+H/es;                                   // solo lo que cae en este tramo
+    for(const im of images){ const r=Math.hypot(im.w,im.h)/2, cy=im.y+im.h/2; if(cy+r<yTop||cy-r>yBot) continue; const el=imgEl(im.id); if(el.complete && el.naturalWidth) drawBoardImage(c,el,im); }
+    for(const s of strokes){ const b=strokeBounds(s); if(b.maxY<yTop||b.minY>yBot) continue; drawStroke(c,s); }
     c.restore();
   }
 
@@ -6509,17 +6525,80 @@ canvas#board{touch-action:none;}
   function setPageMode(on){
     if(on===pageMode) return;
     const k=curPageNow(); pageMode=on; curPage=k; swipe=null;
-    if(on){ fitPage(); toast('Deslizar hojas: pasa de hoja deslizando un dedo hacia el lado'); }
+    if(on){ fitPage(); toast(matchMedia('(pointer: coarse)').matches ? 'Hojas: desliza un dedo hacia el lado o usa las flechas ‹ ›' : 'Hojas: cambia de hoja con las flechas ‹ › o ← → del teclado'); }
     else { cam.scale=fitScaleFor(viewW()); camFitted=true; cam.y=24-k*pageH()*cam.scale; clampCam(); updateZoomLabel(); render(); toast('Hojas continuas: desplázate hacia abajo'); }
     try{ localStorage.setItem('cm-pizarra-pagemode', on?'1':'0'); }catch(_){}
     scheduleSessionSave();
   }
-  function buildPageList(){
-    const n=pageTotal(), k=curPageNow(); pgList.replaceChildren(); pgList.style.gridTemplateColumns=`repeat(${Math.min(5,n)},44px)`;
-    document.getElementById('toast').classList.remove('show');
-    for(let i=0;i<n;i++){ const b=document.createElement('button'); b.textContent=i+1; b.title='Ir a la hoja '+(i+1); if(i===k) b.className='cur'; b.onclick=()=>goToPage(i); pgList.append(b); }
+  /* ── Organizador de hojas: miniaturas para ir, reordenar y eliminar ── */
+  // Hoja a la que pertenece cada trazo/imagen: la de su centro.
+  function pageOfStroke(st){ const b=strokeBounds(st); return Math.max(0, Math.floor(((b.minY+b.maxY)/2)/pageH())); }
+  function pageOfImage(im){ return Math.max(0, Math.floor((im.y+im.h/2)/pageH())); }
+  function shiftItems(list, d){ const dy=d*pageH(); for(const it of list){ if(it.pts){ for(const q of it.pts) q.y+=dy; } else it.y+=dy; } }
+  function pageHasContent(k){ return strokes.some(st=>pageOfStroke(st)===k) || images.some(im=>pageOfImage(im)===k); }
+  function deletePage(k){
+    const n=pageTotal(); if(n<=1){ toast('Debe quedar al menos una hoja'); return; }
+    if(pageHasContent(k) && !confirm('¿Eliminar la hoja '+(k+1)+' con todo lo que tiene? Puedes deshacerlo con Ctrl+Z.')) return;
+    const sp=strokes.map(pageOfStroke), ip=images.map(pageOfImage);
+    const keepS=[], keepI=[], later=[];
+    strokes.forEach((st,i)=>{ if(sp[i]===k) return; keepS.push(st); if(sp[i]>k) later.push(st); });
+    images.forEach((im,i)=>{ if(ip[i]===k) return; keepI.push(im); if(ip[i]>k) later.push(im); });
+    shiftItems(later, -1); strokes=keepS; images=keepI; clearSel();
+    pageCount=Math.max(1, n-1);
+    if(pageMode){ if(curPage>k || curPage>=pageCount) curPage=Math.max(0,curPage-1); clampCam(); }
+    pushHistory(); render(); buildPageList();
   }
-  function closePageList(){ pgList.hidden=true; }
+  function movePage(k, dir){
+    const j=k+dir, n=pageTotal(); if(j<0||j>=n) return;
+    const a=[], b=[];
+    strokes.forEach(st=>{ const p=pageOfStroke(st); if(p===k) a.push(st); else if(p===j) b.push(st); });
+    images.forEach(im=>{ const p=pageOfImage(im); if(p===k) a.push(im); else if(p===j) b.push(im); });
+    shiftItems(a, dir); shiftItems(b, -dir); pageCount=Math.max(pageCount, n);
+    if(pageMode){ if(curPage===k) curPage=j; else if(curPage===j) curPage=k; clampCam(); }
+    pushHistory(); render(); buildPageList();
+  }
+  const ICON={ left:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>',
+    right:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>',
+    del:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>',
+    add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>' };
+  let thumbJob=0;
+  function paintThumb(cv, k){
+    const tw=120, dpr=Math.min(2, window.devicePixelRatio||1), es=tw/pageW()*dpr;
+    cv.width=Math.round(pageW()*es); cv.height=Math.round(pageH()*es);
+    paintSlice(cv.getContext('2d'), k*pageH(), es);
+  }
+  function buildPageList(){
+    const n=pageTotal(), k=curPageNow(), job=++thumbJob;
+    document.getElementById('toast').classList.remove('show');
+    pgList.style.setProperty('--pg-ar', String(pageW()/pageH()));
+    const head=document.createElement('div'); head.className='pgl-head';
+    head.innerHTML='<span>Hojas</span><small>Toca una hoja para ir · ‹ › la mueven · papelero la elimina</small>';
+    const grid=document.createElement('div'); grid.className='pgl-grid'; const thumbs=[];
+    for(let i=0;i<n;i++){
+      const card=document.createElement('div'); card.className='pg-card'+(i===k?' cur':'');
+      const tb=document.createElement('button'); tb.className='pg-thumb'; tb.title='Ir a la hoja '+(i+1); tb.setAttribute('aria-label','Ir a la hoja '+(i+1));
+      const cv=document.createElement('canvas'); cv.width=4; cv.height=Math.round(4*pageH()/pageW()); tb.append(cv); thumbs.push([cv,i]);
+      tb.onclick=()=>{ closePageList(); goToPage(i); };
+      const lbl=document.createElement('span'); lbl.className='pg-lbl'; lbl.textContent='Hoja '+(i+1);
+      const acts=document.createElement('div'); acts.className='pg-acts';
+      const mk=(html,title,fn,dis,cls)=>{ const b=document.createElement('button'); b.innerHTML=html; b.title=title; b.setAttribute('aria-label',title); b.disabled=!!dis; if(cls) b.className=cls; b.onclick=e=>{ e.stopPropagation(); fn(); }; return b; };
+      acts.append(mk(ICON.left,'Mover la hoja '+(i+1)+' antes',()=>movePage(i,-1),i===0),
+                  mk(ICON.del,'Eliminar la hoja '+(i+1),()=>deletePage(i),n<=1,'pg-del'),
+                  mk(ICON.right,'Mover la hoja '+(i+1)+' después',()=>movePage(i,1),i===n-1));
+      card.append(tb,lbl,acts); grid.append(card);
+    }
+    const nc=document.createElement('div'); nc.className='pg-card';
+    const nb=document.createElement('button'); nb.className='pg-newcard'; nb.innerHTML=ICON.add+'Hoja nueva al final'; nb.onclick=()=>{ pageCount=n+1; pushHistory(); pagerKey=''; buildPageList(); };
+    nc.append(nb); grid.append(nc);
+    pgList.replaceChildren(head, grid);
+    // Miniaturas de a una por cuadro, para no trabar la tablet con muchas hojas.
+    let idx=0; const step=()=>{ if(job!==thumbJob || pgList.hidden) return; const t0=performance.now();
+      while(idx<thumbs.length && performance.now()-t0<12){ const [cv,i]=thumbs[idx++]; paintThumb(cv,i); }
+      if(idx<thumbs.length) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+    const cur=grid.children[k]; if(cur) requestAnimationFrame(()=>cur.scrollIntoView({block:'nearest'}));
+  }
+  function closePageList(){ pgList.hidden=true; thumbJob++; }
   document.getElementById('pg-prev').onclick=()=>goToPage(curPageNow()-1);
   document.getElementById('pg-next').onclick=()=>goToPage(curPageNow()+1);
   document.getElementById('pg-add').onclick=addPageAfter;
