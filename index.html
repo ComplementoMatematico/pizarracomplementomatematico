@@ -1501,8 +1501,10 @@ canvas#board{touch-action:none;}
     // (proporcionalmente, ambos por igual) para que nunca baje de ~9 px reales. El PDF/PNG
     // exportado conserva el tamaño original.
     const boost=Math.max(1, Math.min(2.6, 9/(13*cam.scale)));
-    for(let k=kStart;k<=kEnd;k++) paintHF(ctx, k*PH, PW, PH, MX, k+1, k<N?N:0, boost);   // hojas aún vacías: solo el número
+    for(let k=kStart;k<=kEnd;k++) if(!bgPage(k)) paintHF(ctx, k*PH, PW, PH, MX, k+1, k<N?N:0, boost);   // hojas aún vacías: solo el número
   }
+  // ¿La hoja k tiene de fondo una página de PDF? (entonces el PDF reemplaza el encabezado y el pie)
+  function bgPage(k){ for(const im of images) if(im.bg && Math.floor((im.y+im.h/2)/pageH())===k) return true; return false; }
   const HF_FONT="'Times New Roman','Times',Georgia,serif";
   function paintHF(c, top, PW, PH, MX, pageNum, N, boost){
     boost=boost||1;
@@ -1993,7 +1995,7 @@ canvas#board{touch-action:none;}
     for(let i=0;i<4;i++){ if(Math.abs(sx-cs[i][0])<14 && Math.abs(sy-cs[i][1])<14) return i; }
     return null;
   }
-  function imageAt(wp){ for(let i=images.length-1;i>=0;i--){ const im=images[i]; if(wp.x>=im.x&&wp.x<=im.x+im.w&&wp.y>=im.y&&wp.y<=im.y+im.h) return im; } return null; }
+  function imageAt(wp){ for(let i=images.length-1;i>=0;i--){ const im=images[i]; if(im.bg) continue; if(wp.x>=im.x&&wp.x<=im.x+im.w&&wp.y>=im.y&&wp.y<=im.y+im.h) return im; } return null; }
   function strokeAt(wp){ const R=8/cam.scale, R2=R*R; for(let i=strokes.length-1;i>=0;i--){ if(strokeNear(strokes[i],wp,R2)) return strokes[i]; } return null; }
   function inSel(o,arr){ return arr.indexOf(o)>=0; }
 
@@ -2100,7 +2102,7 @@ canvas#board{touch-action:none;}
       if(s.shape){ tot++; const cc=shapeCenter(s); if(ptInPoly(cc.x,cc.y,P)) inn++; }
       if(tot && inn/tot>=0.5) sel.strokes.push(s); }
     // Una imagen entra si la mitad de una grilla de 3×3 puntos sobre ella queda dentro (o su centro).
-    for(const im of images){ if(inSel(im,sel.images)) continue; if(!hitBox({minX:im.x,maxX:im.x+im.w,minY:im.y,maxY:im.y+im.h})) continue;
+    for(const im of images){ if(im.bg||inSel(im,sel.images)) continue; if(!hitBox({minX:im.x,maxX:im.x+im.w,minY:im.y,maxY:im.y+im.h})) continue;
       let inn=0; for(let i=0;i<3;i++) for(let j=0;j<3;j++) if(ptInPoly(im.x+im.w*(i+.5)/3, im.y+im.h*(j+.5)/3, P)) inn++;
       if(inn>=5) sel.images.push(im); }
   }
@@ -2120,7 +2122,7 @@ canvas#board{touch-action:none;}
     if(imgAction && imgAction.mode==='marquee'){
       const r={minX:Math.min(marquee.x0,marquee.x1),minY:Math.min(marquee.y0,marquee.y1),maxX:Math.max(marquee.x0,marquee.x1),maxY:Math.max(marquee.y0,marquee.y1)};
       if((r.maxX-r.minX)>3 || (r.maxY-r.minY)>3){
-        for(const im of images){ if(im.x<r.maxX && im.x+im.w>r.minX && im.y<r.maxY && im.y+im.h>r.minY && !inSel(im,sel.images)) sel.images.push(im); }
+        for(const im of images){ if(!im.bg && im.x<r.maxX && im.x+im.w>r.minX && im.y<r.maxY && im.y+im.h>r.minY && !inSel(im,sel.images)) sel.images.push(im); }
         for(const s of strokes){ const b=strokeBounds(s); if(b.minX<r.maxX && b.maxX>r.minX && b.minY<r.maxY && b.maxY>r.minY && !inSel(s,sel.strokes)) sel.strokes.push(s); }
       }
       marquee=null; imgAction=null; render(); drawId=null; return;
@@ -2764,10 +2766,10 @@ canvas#board{touch-action:none;}
       const lib=await ensurePdfJs();
       const buf=await file.arrayBuffer();
       const doc=await lib.getDocument({data:buf}).promise;
-      // Cada página del PDF va en su propia hoja, desde la primera hoja libre, centrada
-      // entre el encabezado y el pie (así al exportar queda una página del PDF por página).
+      // Cada página del PDF pasa a ser el FONDO de su propia hoja (hoja completa, sin encabezado
+      // ni pie propios), desde la primera hoja libre. Se escribe encima y no se selecciona por error.
       const PW=pageW(), PH=pageH(), cb=contentBottom(), first=cb>0 ? Math.ceil((cb+1)/PH) : 0;
-      const top=showHF?64:16, bot=showHF?64:16, boxW=PW-32, boxH=PH-top-bot;
+      const top=0, boxW=PW, boxH=PH;
       for(let n=1;n<=doc.numPages;n++){
         const page=await doc.getPage(n);
         let vp=page.getViewport({scale:1});
@@ -2776,7 +2778,7 @@ canvas#board{touch-action:none;}
         const cv=document.createElement('canvas'); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
         await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
         const sheet=first+n-1;
-        addImageAt(cv.toDataURL('image/png'), (PW-w)/2, sheet*PH+top+(boxH-h)/2, w, h);
+        const im=addImageAt(cv.toDataURL('image/png'), (PW-w)/2, sheet*PH+top+(boxH-h)/2, w, h); im.bg=true;
       }
       pushHistory(); goToPage(first, true); render();
       toast(doc.numPages>1?`PDF insertado (${doc.numPages} páginas)`:'PDF insertado');
@@ -2870,7 +2872,7 @@ canvas#board{touch-action:none;}
     }
     // encabezado/pie + imágenes + trazos
     c.translate(0,-yTop*es); c.scale(es,es);
-    if(showHF){ const N=totalPages(), PW=pageW(); const k0=Math.floor(yTop/PH), k1=Math.floor((yTop + H/es - 1)/PH); for(let k=k0;k<=k1;k++) paintHF(c, k*PH, PW, PH, 54, k+1, N); }
+    if(showHF){ const N=totalPages(), PW=pageW(); const k0=Math.floor(yTop/PH), k1=Math.floor((yTop + H/es - 1)/PH); for(let k=k0;k<=k1;k++) if(!bgPage(k)) paintHF(c, k*PH, PW, PH, 54, k+1, N); }
     // solo lo que cae en esta franja (miniaturas y PDF de muchas páginas no recorren todo el documento)
     const y0=yTop-60, y1=yTop+H/es+60;
     for(const im of images){ const r=im.rotation?Math.hypot(im.w,im.h)/2:0, cy=im.y+im.h/2, top=im.rotation?cy-r:im.y, bot=im.rotation?cy+r:im.y+im.h;
@@ -3062,7 +3064,9 @@ canvas#board{touch-action:none;}
     const later=[]; strokes=strokes.filter((st,i)=>{ if(sp[i]===k) return false; if(sp[i]>k) later.push(st); return true; });
     images=images.filter((im,i)=>{ if(ip[i]===k) return false; if(ip[i]>k) later.push(im); return true; });
     shiftItems(later,-1);
-    if(isBook()&&bookPage>k) bookSetPage(bookPage-1);
+    const last=Math.max(0, totalPages()-1);
+    if(isBook()){ if(bookPage>k) bookSetPage(bookPage-1); else if(bookPage===k && k>last) bookSetPage(Math.max(0,k-1)); }
+    else if(currentPage()===k && k>last) goToPage(Math.max(0,k-1), true);
     afterPageEdit(); return true;
   }
   function movePage(k,dir){
