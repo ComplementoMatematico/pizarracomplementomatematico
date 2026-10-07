@@ -563,6 +563,64 @@ canvas#board{touch-action:none;}
   .stage .selection-toolbar{margin-top:var(--nav-top,0px);margin-right:var(--nav-right,0px);}
   @media(max-width:600px){ .page-nav{padding:3px;} .page-nav button{height:32px;min-width:32px;padding:0 5px;} .page-nav .pn-num{min-width:52px;font-size:12px;} .page-nav .pn-grip{min-width:18px;} }
 
+  /* ── Temporizador flotante (reloj de arena 3D + tiempo digital) ── */
+  .cm-timer{position:absolute;z-index:54;top:16px;right:76px;width:232px;color:#eaeef7;user-select:none;-webkit-user-select:none;touch-action:none;
+    background:radial-gradient(120% 90% at 50% 0%,#24407e 0%,#1a2e62 42%,#111f45 100%);border:1px solid rgba(236,200,94,.32);border-radius:20px;
+    box-shadow:0 18px 50px rgba(6,12,30,.5),0 2px 0 rgba(255,255,255,.06) inset,0 0 0 1px rgba(0,0,0,.25);overflow:hidden;
+    transition:box-shadow .3s,width .25s,border-color .3s;}
+  .cm-timer[hidden]{display:none;}
+  .cm-timer::before{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,.07),transparent 38%);}
+  .cm-timer.dragging{box-shadow:0 26px 60px rgba(6,12,30,.6);cursor:grabbing;}
+  .cmt-head{display:flex;align-items:center;gap:6px;padding:9px 9px 2px 13px;cursor:grab;}
+  .cmt-title{flex:1;min-width:0;font:600 13.5px 'Playfair Display',Georgia,serif;letter-spacing:.3px;color:#f5e6be;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cmt-ib{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:#aebddb;flex:0 0 auto;}
+  .cmt-ib svg{width:16px;height:16px;}
+  .cmt-seg{display:flex;margin:6px 12px 0;padding:3px;border-radius:11px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.06);}
+  .cmt-seg button{flex:1;height:28px;border-radius:8px;font:600 12px Inter,system-ui,sans-serif;color:#aebddb;transition:background .2s,color .2s;}
+  .cmt-seg button.on{background:linear-gradient(180deg,#f1d27a,#d9a92b);color:#142449;box-shadow:0 2px 8px rgba(217,169,43,.35);}
+  .cmt-glass{position:relative;display:flex;justify-content:center;padding:4px 0 0;}
+  .cmt-glass canvas{display:block;width:150px;height:186px;}
+  .cmt-time{display:block;margin:0 auto;padding:0 10px;border-radius:10px;text-align:center;font:600 42px/1.08 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.5px;color:#f7ead0;
+    text-shadow:0 0 18px rgba(236,200,94,.28),0 2px 0 rgba(0,0,0,.25);transition:color .3s;}
+  .cmt-time.edit{cursor:text;}
+  .cmt-time.warn{color:#ffb39e;text-shadow:0 0 18px rgba(255,120,90,.35);}
+  .cmt-time.done{animation:cmtBlink 1s steps(2,start) infinite;color:#ffd978;}
+  @keyframes cmtBlink{to{opacity:.25;}}
+  .cmt-input{display:block;width:150px;margin:0 auto;text-align:center;font:600 34px/1.2 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#142449;background:#f7ead0;border:none;border-radius:10px;padding:2px 6px;outline:2px solid #d9a92b;}
+  .cmt-sub{text-align:center;font:500 11px Inter,system-ui,sans-serif;letter-spacing:1.4px;text-transform:uppercase;color:#8fa2c6;margin-top:1px;min-height:14px;}
+  .cmt-presets{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;padding:8px 12px 0;}
+  .cmt-presets button{min-width:34px;height:26px;padding:0 7px;border-radius:999px;font:600 11.5px Inter,system-ui,sans-serif;color:#dfe7f5;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);}
+  .cmt-presets button.sel{border-color:#ecc85e;color:#ffd978;background:rgba(217,169,43,.16);}
+  .cmt-ctrl{display:flex;align-items:center;justify-content:center;gap:14px;padding:12px 12px 14px;}
+  .cmt-btn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#dfe7f5;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);transition:transform .08s,background .2s;}
+  .cmt-btn svg{width:19px;height:19px;}
+  .cmt-btn:active{transform:scale(.93);}
+  .cmt-btn:disabled{opacity:.35;}
+  .cmt-play{width:58px;height:58px;color:#142449;border:none;background:radial-gradient(circle at 35% 30%,#fbe3a0,#e3b440 55%,#b98a1a);box-shadow:0 8px 22px rgba(217,169,43,.42),inset 0 -3px 6px rgba(120,80,0,.35),inset 0 2px 3px rgba(255,255,255,.5);}
+  .cmt-play svg{width:24px;height:24px;}
+  .cmt-small{font:700 11px Inter,system-ui,sans-serif;}
+  @media (hover:hover){ .cmt-ib:hover{background:rgba(255,255,255,.1);color:#fff;} .cmt-seg button:not(.on):hover{color:#fff;} .cmt-presets button:hover{border-color:#ecc85e88;} .cmt-btn:not(.cmt-play):not(:disabled):hover{background:rgba(255,255,255,.15);} .cmt-play:hover{filter:brightness(1.06);} }
+  .cm-timer.ring{border-color:#ecc85e;animation:cmtRing 1.2s ease-in-out infinite;}
+  @keyframes cmtRing{0%,100%{box-shadow:0 18px 50px rgba(6,12,30,.5),0 0 0 0 rgba(236,200,94,.55);}50%{box-shadow:0 18px 50px rgba(6,12,30,.5),0 0 0 10px rgba(236,200,94,0);}}
+  /* Compacto: reloj de arena chico + tiempo + controles en una fila */
+  .cm-timer.compact{width:auto;border-radius:16px;}
+  .cm-timer.compact .cmt-head{display:none;}
+  .cm-timer.compact .cmt-seg,.cm-timer.compact .cmt-presets,.cm-timer.compact .cmt-sub{display:none;}
+  .cm-timer.compact .cmt-body{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 6px;cursor:grab;}
+  .cm-timer.compact .cmt-glass{padding:0;}
+  .cm-timer.compact .cmt-glass canvas{width:34px;height:44px;}
+  .cm-timer.compact .cmt-time{font-size:26px;padding:0 2px;}
+  .cm-timer.compact .cmt-ctrl{padding:0;gap:6px;}
+  .cm-timer.compact .cmt-btn{width:34px;height:34px;}
+  .cm-timer.compact .cmt-play{width:38px;height:38px;}
+  .cm-timer.compact .cmt-play svg{width:17px;height:17px;}
+  .cm-timer.compact .cmt-btn svg{width:15px;height:15px;}
+  .cm-timer.compact .cmt-plus{display:none;}
+  .cmt-expand{display:none;}
+  .cm-timer.compact .cmt-expand{display:grid;}
+  @media(max-width:600px){ .cm-timer{right:8px;top:8px;width:208px;} .cmt-glass canvas{width:126px;height:156px;} .cmt-time{font-size:36px;} }
+  @media (prefers-reduced-motion:reduce){ .cm-timer.ring,.cmt-time.done{animation:none;} }
+
   /* ── Lógica y Conjuntos ── */
   .lx-panel{position:absolute;z-index:56;top:16px;right:16px;width:min(1180px,96vw);height:min(840px,88vh);max-width:calc(100% - 16px);max-height:calc(100% - 16px);background:var(--slate);border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:var(--shadow);display:none;flex-direction:column;overflow:hidden;color:#eaeef7;}
   .lx-panel.open{display:flex;}
@@ -923,6 +981,11 @@ canvas#board{touch-action:none;}
         <span class="tip">Limpiar todo</span>
       </button>
 
+      <button class="tool" id="btn-timer" aria-label="Temporizador" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 21h12"/><path d="M7 3c0 4.5 5 6 5 9s-5 4.5-5 9M17 3c0 4.5-5 6-5 9s5 4.5 5 9"/><path d="M9.5 18.5h5" stroke-width="2.4"/></svg>
+        <span class="tip">Temporizador</span>
+      </button>
+
       <div class="hr"></div>
 
       <button class="grapher-btn" id="btn-grapher" aria-label="Graficador">
@@ -1038,6 +1101,32 @@ canvas#board{touch-action:none;}
         <button type="button" class="po-btn primary" id="po-exp-img" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="m4 16 5-5 4 4 3-3 4 4"/><circle cx="9" cy="9" r="1.4"/></svg>Exportar imágenes</button>
       </div>
       <div class="po-grid" id="po-grid"></div>
+    </div>
+
+    <div class="cm-timer" id="cm-timer" role="dialog" aria-label="Temporizador" hidden>
+      <div class="cmt-head" id="cmt-head">
+        <span class="cmt-title">Temporizador</span>
+        <button type="button" class="cmt-ib" id="cmt-compact" title="Achicar" aria-label="Achicar temporizador"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button>
+        <button type="button" class="cmt-ib" id="cmt-close" title="Cerrar" aria-label="Cerrar temporizador"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="cmt-seg" role="radiogroup" aria-label="Modo">
+        <button type="button" data-mode="down" class="on" role="radio" aria-checked="true">Regresiva</button>
+        <button type="button" data-mode="up" role="radio" aria-checked="false">Cronómetro</button>
+      </div>
+      <div class="cmt-body" id="cmt-body">
+        <div class="cmt-glass"><canvas id="cmt-canvas" aria-hidden="true"></canvas></div>
+        <div>
+          <div class="cmt-time" id="cmt-time" role="timer" aria-live="off">05:00</div>
+          <div class="cmt-sub" id="cmt-sub"></div>
+        </div>
+        <div class="cmt-presets" id="cmt-presets"></div>
+        <div class="cmt-ctrl">
+          <button type="button" class="cmt-btn" id="cmt-reset" title="Reiniciar" aria-label="Reiniciar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+          <button type="button" class="cmt-btn cmt-play" id="cmt-play" title="Iniciar" aria-label="Iniciar"></button>
+          <button type="button" class="cmt-btn cmt-plus cmt-small" id="cmt-plus" title="Sumar 1 minuto" aria-label="Sumar 1 minuto">+1′</button>
+          <button type="button" class="cmt-btn cmt-expand" id="cmt-expand" title="Agrandar" aria-label="Agrandar temporizador"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
+        </div>
+      </div>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -7491,6 +7580,246 @@ canvas#board{touch-action:none;}
   /* ══════ Init ══════ */
   window.addEventListener('resize', ()=>{ resize();gpanel.style.left='';gpanel.style.top='';gpanel.style.right='';gpanel.style.width='';gpanel.style.height='';if(graphReady && gpanel.classList.contains('open')) gpResize(); });
   resize(); fitWidth(); pushHistory(); restoreSession();
+})();
+</script>
+<script>
+/* ══════ Temporizador flotante: reloj de arena 3D + tiempo digital ══════
+   Módulo independiente de la pizarra: solo se anima mientras está abierto y corriendo.
+   El tiempo se calcula desde la hora real (no sumando cuadros), así no se atrasa aunque
+   la tablet ralentice la pestaña. */
+(() => {
+  const panel=document.getElementById('cm-timer'), btn=document.getElementById('btn-timer');
+  if(!panel||!btn) return;
+  const cv=document.getElementById('cmt-canvas'), cx2=cv.getContext('2d');
+  const timeEl=document.getElementById('cmt-time'), subEl=document.getElementById('cmt-sub');
+  const playBtn=document.getElementById('cmt-play'), resetBtn=document.getElementById('cmt-reset'), plusBtn=document.getElementById('cmt-plus');
+  const presetsEl=document.getElementById('cmt-presets'), stage=document.getElementById('stage');
+  const KEY='cm-pizarra-timer', PRESETS=[1,3,5,10,15,30];
+  const PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg>';
+  const PAUSE='<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1.3"/><rect x="13.5" y="5" width="4" height="14" rx="1.3"/></svg>';
+
+  // Estado: mode 'down' (cuenta regresiva) | 'up' (cronómetro). elapsed = accum + (ahora − startAt) si corre.
+  let S={mode:'down', duration:5*60000, running:false, startAt:0, accum:0, open:false, compact:false, pos:null, done:false};
+  try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s&&typeof s==='object') S=Object.assign(S,s); }catch(_){}
+  const save=()=>{ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(_){} };
+  const elapsed=()=>S.accum+(S.running?Date.now()-S.startAt:0);
+  const remaining=()=>Math.max(0, S.duration-elapsed());
+
+  /* ── Reloj de arena (canvas 2D con sombreado para dar volumen) ── */
+  let W=150, H=186, dpr=1;
+  function sizeCanvas(){ dpr=Math.min(2, window.devicePixelRatio||1); W=cv.clientWidth||150; H=cv.clientHeight||186;
+    const w=Math.round(W*dpr), h=Math.round(H*dpr); if(cv.width!==w||cv.height!==h){ cv.width=w; cv.height=h; } }
+  // Perfil del vidrio: u=0 junto a la tapa, u=1 en el cuello. Paredes casi rectas arriba y curva suave al cuello.
+  const prof=(u,R,neck)=>neck+(R-neck)*Math.sqrt(Math.max(0,1-Math.pow(u,2.3)))*(1-0.16*u);
+  // Tabla de volumen acumulado (∝ ancho²) para que el nivel de arena baje/suba de forma realista.
+  const VT=(()=>{ const n=120, a=[0]; for(let i=1;i<=n;i++){ const u=(i-.5)/n, w=prof(u,1,.07); a.push(a[i-1]+w*w/n); } return {n,a,tot:a[n]}; })();
+  // u tal que el volumen entre la tapa (u=0) y u sea la fracción f del bulbo.
+  function uForVol(f){ const t=f*VT.tot, a=VT.a; let i=1; while(i<VT.n && a[i]<t) i++; const lo=a[i-1], hi=a[i]; return (i-1+(hi>lo?(t-lo)/(hi-lo):0))/VT.n; }
+  const FILL=0.78;                    // el bulbo no va lleno hasta arriba
+  let grains=[], lastFrame=0;
+  function gold(c,x0,x1,dark){ const g=c.createLinearGradient(x0,0,x1,0);
+    g.addColorStop(0,dark?'#6b4c0c':'#8a6514'); g.addColorStop(.28,'#f7dc8d'); g.addColorStop(.5,'#c9971f'); g.addColorStop(.72,'#f3d27a'); g.addColorStop(1,dark?'#5e420a':'#7a5810'); return g; }
+  function drawHourglass(p, angle, running, dt){
+    sizeCanvas(); const c=cx2; c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,W,H);
+    const s=Math.min(W/150, H/186), cx=W/2, cy=H/2;
+    const R=40*s, neck=2.6*s, capRx=50*s, capRy=8.5*s, capH=9*s, glassH=72*s;   // glassH: alto de cada bulbo
+    const yNeck=0, yTop=-glassH, yBot=glassH;
+    // sombra en el «escritorio»
+    c.save(); c.translate(cx, cy); const sh=c.createRadialGradient(0,glassH+capH+10*s,2,0,glassH+capH+10*s,capRx*1.2);
+    sh.addColorStop(0,'rgba(0,0,0,.45)'); sh.addColorStop(1,'rgba(0,0,0,0)'); c.fillStyle=sh; c.save(); c.scale(1,.22); c.beginPath(); c.arc(0,(glassH+capH+10*s)/.22,capRx*1.2,0,6.2832); c.fill(); c.restore();
+    c.rotate(angle);
+    if(angle){ const hw=capRx+3*s, hh=glassH+capH+capRy+2*s, ca=Math.abs(Math.cos(angle)), sa=Math.abs(Math.sin(angle));   // al girar, que quepa entero
+      const k=Math.min(1, (W/2)/(ca*hw+sa*hh), (H/2)/(sa*hw+ca*hh)); c.scale(k,k); }
+    const wTop=u=>prof(u,R,neck);
+    // contorno del vidrio (ambos bulbos)
+    const N=40;
+    const glassPath=()=>{ c.beginPath();
+      for(let i=0;i<=N;i++){ const u=i/N; c.lineTo(-wTop(u), yTop+u*glassH); }
+      for(let i=N;i>=0;i--){ const u=i/N; c.lineTo(-wTop(u), yBot-u*glassH); }
+      for(let i=0;i<=N;i++){ const u=i/N; c.lineTo(wTop(u), yBot-u*glassH); }
+      for(let i=N;i>=0;i--){ const u=i/N; c.lineTo(wTop(u), yTop+u*glassH); }
+      c.closePath(); };
+    // tapas (azul marino con filete dorado), dibujadas como cilindros; la de abajo va bajo el vidrio
+    const cap=(y, top)=>{ const y0=top? y-capH : y, y1=top? y : y+capH;
+      const side=c.createLinearGradient(-capRx,0,capRx,0); side.addColorStop(0,'#0c1838'); side.addColorStop(.3,'#2d4a8e'); side.addColorStop(.55,'#1b2f63'); side.addColorStop(1,'#0a142e');
+      c.fillStyle=side; c.beginPath(); c.ellipse(0,y1,capRx,capRy,0,0,Math.PI); c.lineTo(-capRx,y0); c.ellipse(0,y0,capRx,capRy,0,Math.PI,0,true); c.closePath(); c.fill();
+      c.strokeStyle=gold(c,-capRx,capRx); c.lineWidth=1.6*s; c.beginPath(); c.ellipse(0,(y0+y1)/2+capRy*.15,capRx,capRy,0,0,Math.PI); c.stroke();
+      const face=c.createRadialGradient(-capRx*.3,y0-capRy*.4,2,0,y0,capRx); face.addColorStop(0,'#3a5aa4'); face.addColorStop(1,'#16295a');
+      c.fillStyle=face; c.beginPath(); c.ellipse(0,y0,capRx,capRy,0,0,6.2832); c.fill();
+      c.strokeStyle=gold(c,-capRx,capRx); c.lineWidth=1.4*s; c.stroke(); };
+    cap(yBot+1, false);
+    // interior del vidrio (tinte azulado)
+    glassPath(); const gi=c.createLinearGradient(-R,0,R,0); gi.addColorStop(0,'rgba(170,200,255,.16)'); gi.addColorStop(.5,'rgba(220,235,255,.05)'); gi.addColorStop(1,'rgba(170,200,255,.14)');
+    c.fillStyle=gi; c.fill();
+    // ── arena ──
+    c.save(); glassPath(); c.clip();
+    const sandH=c.createLinearGradient(-R,0,R,0); sandH.addColorStop(0,'#a8721a'); sandH.addColorStop(.35,'#f0c766'); sandH.addColorStop(.55,'#e2ae45'); sandH.addColorStop(1,'#8f5f12');
+    const topF=(1-p)*FILL, botF=p*FILL;
+    if(topF>0.002){                                 // arena arriba: desde el cuello hasta su nivel
+      const level=Math.min(.995, Math.max(0, uForVolFromNeck(topF)));
+      const ys=yTop+level*glassH, ws=wTop(level), dip=running? Math.min(7*s, ws*.35)*(0.4+0.6*Math.min(1,p*6)) : 0;
+      c.beginPath(); c.moveTo(-ws, ys); c.quadraticCurveTo(0, ys+dip*2, ws, ys);
+      for(let i=Math.ceil(level*N);i<=N;i++){ const u=i/N; c.lineTo(wTop(u), yTop+u*glassH); }
+      for(let i=N;i>=Math.ceil(level*N);i--){ const u=i/N; c.lineTo(-wTop(u), yTop+u*glassH); }
+      c.closePath(); c.fillStyle=sandH; c.fill();
+      // superficie (elipse en perspectiva) + hundimiento al centro
+      c.save(); c.beginPath(); c.ellipse(0, ys, ws, Math.max(1.5, ws*.17), 0, 0, 6.2832); const sf=c.createRadialGradient(-ws*.3, ys-2, 1, 0, ys, ws);
+      sf.addColorStop(0,'#fde3a0'); sf.addColorStop(.7,'#e8b955'); sf.addColorStop(1,'#c48d2a'); c.fillStyle=sf; c.fill();
+      if(dip>0){ const fd=c.createRadialGradient(0, ys+dip*.6, 0, 0, ys+dip*.6, ws*.55); fd.addColorStop(0,'rgba(120,70,8,.55)'); fd.addColorStop(1,'rgba(120,70,8,0)'); c.fillStyle=fd; c.fill(); }
+      c.restore();
+    }
+    let pileTop=yBot;
+    if(botF>0.002){                                 // arena abajo: desde la tapa, con montículo al centro
+      const level=uForVol(botF), yb=yBot-level*glassH, wb=wTop(level);
+      const mound=Math.min(13*s, wb*.42)*(p<1? 1 : .55)*Math.min(1, p*5);
+      pileTop=yb-mound;
+      c.beginPath(); c.moveTo(-wb, yb); c.quadraticCurveTo(-wb*.35, yb-mound*.15, 0, yb-mound); c.quadraticCurveTo(wb*.35, yb-mound*.15, wb, yb);
+      for(let i=Math.ceil(level*N);i>=0;i--){ const u=i/N; c.lineTo(wTop(u), yBot-u*glassH); }
+      for(let i=0;i<=Math.ceil(level*N);i++){ const u=i/N; c.lineTo(-wTop(u), yBot-u*glassH); }
+      c.closePath(); c.fillStyle=sandH; c.fill();
+      const ml=c.createLinearGradient(-wb,0,wb*.6,0); ml.addColorStop(0,'rgba(255,240,200,.0)'); ml.addColorStop(.45,'rgba(255,236,190,.35)'); ml.addColorStop(1,'rgba(90,50,0,.25)');
+      c.beginPath(); c.moveTo(-wb, yb); c.quadraticCurveTo(-wb*.35, yb-mound*.15, 0, yb-mound); c.quadraticCurveTo(wb*.35, yb-mound*.15, wb, yb); c.quadraticCurveTo(0, yb+wb*.17, -wb, yb); c.fillStyle=ml; c.fill();
+    } else pileTop=yBot-1;
+    // chorro de arena + granos cayendo (solo corriendo)
+    if(running && topF>0.002 && !angle){
+      c.strokeStyle='rgba(236,190,90,.95)'; c.lineWidth=1.3*s; c.beginPath(); c.moveTo(0, yNeck-2);
+      const wob=Math.sin(performance.now()/90)*.35*s; c.lineTo(wob, pileTop); c.stroke();
+      const n=Math.random()<.9?2:1; for(let i=0;i<n;i++) grains.push({x:(Math.random()-.5)*1.6*s, y:yNeck+Math.random()*4*s, v:(60+Math.random()*50)*s});
+      c.fillStyle='#ffe6a6';
+      grains=grains.filter(g=>{ g.y+=g.v*dt; g.v+=420*s*dt; if(g.y>=pileTop){ return false; } c.fillRect(g.x-.5, g.y, 1.1, 1.4); return true; });
+      // salpicadura al llegar
+      c.fillStyle='rgba(255,226,150,.8)'; for(let i=0;i<3;i++){ const a=Math.random()*Math.PI, r=Math.random()*4*s; c.fillRect(Math.cos(a)*r, pileTop-Math.sin(a)*r*.6, 1, 1); }
+    } else grains=[];
+    c.restore();
+    // ── vidrio: brillos y contorno ──
+    c.save(); glassPath(); c.clip();
+    for(const sgn of [-1,1]){ const yc=sgn<0? yTop+glassH*.42 : yBot-glassH*.42;
+      const hl=c.createLinearGradient(-R*.82,0,-R*.45,0); hl.addColorStop(0,'rgba(255,255,255,0)'); hl.addColorStop(.5,'rgba(255,255,255,.38)'); hl.addColorStop(1,'rgba(255,255,255,0)');
+      c.fillStyle=hl; c.beginPath(); c.ellipse(-R*.62, yc, R*.11, glassH*.36, 0, 0, 6.2832); c.fill();
+      const rs=c.createLinearGradient(R*.5,0,R,0); rs.addColorStop(0,'rgba(255,255,255,0)'); rs.addColorStop(1,'rgba(255,255,255,.18)'); c.fillStyle=rs; c.fillRect(R*.5, yc-glassH*.45, R*.5, glassH*.9); }
+    c.restore();
+    glassPath(); c.lineWidth=1.3*s; c.strokeStyle='rgba(225,238,255,.6)'; c.stroke();
+    c.lineWidth=.6*s; c.strokeStyle='rgba(255,255,255,.35)'; c.beginPath(); for(let i=2;i<=N-4;i++){ const u=i/N; c.lineTo(-wTop(u)+2*s, yTop+u*glassH); } c.stroke();
+    // varillas delanteras
+    for(const x of [-capRx+6*s, capRx-6*s]){ c.fillStyle=gold(c,x-2.6*s,x+2.6*s); c.beginPath(); c.roundRect? c.roundRect(x-2.6*s, yTop-2, 5.2*s, glassH*2+4, 2.6*s) : c.rect(x-2.6*s, yTop-2, 5.2*s, glassH*2+4); c.fill();
+      c.fillStyle=gold(c,x-4*s,x+4*s); for(const yy of [yTop+6*s, yBot-6*s]){ c.beginPath(); c.ellipse(x, yy, 4*s, 2.2*s, 0, 0, 6.2832); c.fill(); } }
+    cap(yTop-1, true);
+    c.restore();
+  }
+  // nivel de la arena de ARRIBA medido desde la tapa superior (u), para una fracción f del bulbo llena desde el cuello
+  function uForVolFromNeck(f){ return uForVol(1 - f); }
+
+  /* ── Sonido de fin: campanas suaves (WebAudio, sin archivos) ── */
+  let actx=null;
+  function audio(){ try{ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch(_){} return actx; }
+  function chime(){ const a=audio(); if(!a) return; const t0=a.currentTime+.02;
+    [[0,880],[.22,1108.7],[.44,1318.5],[1.1,880],[1.32,1108.7],[1.54,1318.5]].forEach(([dt,f])=>{
+      for(const [mul,vol] of [[1,.22],[2.01,.07],[3.02,.03]]){ const o=a.createOscillator(), g=a.createGain(); o.type='sine'; o.frequency.value=f*mul;
+        g.gain.setValueAtTime(0,t0+dt); g.gain.linearRampToValueAtTime(vol,t0+dt+.01); g.gain.exponentialRampToValueAtTime(.0001,t0+dt+1.4);
+        o.connect(g).connect(a.destination); o.start(t0+dt); o.stop(t0+dt+1.5); } });
+    try{ navigator.vibrate&&navigator.vibrate([180,90,180]); }catch(_){} }
+
+  /* ── Interfaz ── */
+  const pad=n=>String(n).padStart(2,'0');
+  function fmt(ms, up){ const t=up? Math.floor(ms/1000) : Math.ceil(ms/1000), h=Math.floor(t/3600), m=Math.floor(t%3600/60), sec=t%60;
+    return h? h+':'+pad(m)+':'+pad(sec) : pad(m)+':'+pad(sec); }
+  let shown='';
+  function paintText(){
+    const up=S.mode==='up', ms=up? elapsed() : remaining(), txt=fmt(ms, up);
+    if(txt!==shown){ shown=txt; timeEl.textContent=txt; }
+    timeEl.classList.toggle('warn', !up && S.running && ms<=10000 && ms>0);
+    timeEl.classList.toggle('done', !up && S.done);
+    timeEl.classList.toggle('edit', !up && !S.running && !S.done);
+    subEl.textContent = S.done? '¡Tiempo!' : up? (S.running?'Cronómetro':'') : (S.running? 'de '+fmt(S.duration,false) : (S.accum? 'En pausa' : 'Toca para editar'));
+  }
+  function syncUI(){
+    panel.querySelectorAll('.cmt-seg button').forEach(b=>{ const on=b.dataset.mode===S.mode; b.classList.toggle('on',on); b.setAttribute('aria-checked',String(on)); });
+    playBtn.innerHTML=S.running?PAUSE:PLAY; playBtn.title=playBtn.ariaLabel=S.running?'Pausar':(S.accum?'Reanudar':'Iniciar');
+    playBtn.setAttribute('aria-label',playBtn.title);
+    plusBtn.hidden = S.mode!=='down';
+    presetsEl.hidden = S.mode!=='down' || S.running;
+    presetsEl.querySelectorAll('button').forEach(b=>b.classList.toggle('sel', +b.dataset.min*60000===S.duration));
+    panel.classList.toggle('compact', !!S.compact); panel.classList.toggle('ring', !!S.done);
+    btn.classList.toggle('active', !!S.open); btn.setAttribute('aria-pressed', String(!!S.open));
+    shown=''; paintText(); frame(true);
+  }
+  presetsEl.replaceChildren(...PRESETS.map(m=>{ const b=document.createElement('button'); b.type='button'; b.dataset.min=m; b.textContent=m+' min'; b.onclick=()=>{ setDuration(m*60000); }; return b; }));
+  function setDuration(ms){ S.duration=Math.max(5000, Math.min(6*3600000, ms)); S.accum=0; S.done=false; S.running=false; flip(); save(); syncUI(); }
+
+  /* ── Animación: solo mientras está abierto y corriendo (o girando) ── */
+  let raf=0, flipT0=0, flipFrom=0, flipping=false, endTimer=0;
+  const FLIP_MS=750, ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+  function progress(){ if(S.mode==='up') return (elapsed()%60000)/60000; return S.duration? Math.min(1, elapsed()/S.duration) : 0; }
+  function flip(from){ flipFrom= from==null? progressShown : from; if(flipFrom<0.02){ flipping=false; return; } flipping=true; flipT0=performance.now(); frame(true); }
+  let progressShown=0, lastMinute=-1;
+  function frame(force){
+    if(!S.open){ cancelAnimationFrame(raf); raf=0; return; }
+    const now=performance.now(), dt=Math.min(.05,(now-(lastFrame||now))/1000); lastFrame=now;
+    if(flipping){ const u=Math.min(1,(now-flipT0)/FLIP_MS), e=ease(u);
+      drawHourglass(flipFrom+(1-flipFrom)*e, Math.PI*e, false, dt);           // gira y la arena «se asienta» abajo → queda llena arriba
+      if(u>=1){ flipping=false; progressShown=progress(); drawHourglass(progressShown,0,S.running,0); } }
+    else { if(S.mode==='up'&&S.running){ const m=Math.floor(elapsed()/60000); if(lastMinute>=0&&m>lastMinute){ lastMinute=m; flip(1); } else lastMinute=m; }
+      if(!flipping){ progressShown=progress(); drawHourglass(progressShown, 0, S.running, dt); } }
+    paintText();
+    if(S.running && S.mode==='down' && remaining()<=0) finish();
+    const again = flipping || S.running;
+    cancelAnimationFrame(raf); raf = again? requestAnimationFrame(()=>frame()) : 0;
+    if(!again) lastFrame=0;
+  }
+  function armEnd(){ clearTimeout(endTimer); if(S.running&&S.mode==='down') endTimer=setTimeout(()=>{ if(S.running&&remaining()<=0) finish(); else armEnd(); }, Math.min(remaining()+30, 2147483000)); }
+  function finish(){ if(!S.running) return; S.accum=S.duration; S.running=false; S.done=true; save(); clearTimeout(endTimer); chime();
+    if(!S.open){ S.open=true; panel.hidden=false; } syncUI(); }
+  function start(){ audio(); if(S.mode==='down' && (S.done||remaining()<=0)){ S.accum=0; S.done=false; }
+    S.running=true; S.startAt=Date.now(); lastMinute=S.mode==='up'? Math.floor(S.accum/60000) : -1; save(); armEnd(); syncUI(); }
+  function pause(){ S.accum=elapsed(); S.running=false; save(); clearTimeout(endTimer); syncUI(); }
+  function reset(){ const from=progressShown; S.running=false; S.accum=0; S.done=false; clearTimeout(endTimer); save(); flip(from); syncUI(); }
+  playBtn.onclick=()=>{ if(S.running) pause(); else start(); };
+  resetBtn.onclick=reset;
+  plusBtn.onclick=()=>{ S.duration=Math.min(6*3600000, S.duration+60000); if(S.done){ S.done=false; S.accum=S.duration-60000; } save(); armEnd(); syncUI(); };
+  panel.querySelectorAll('.cmt-seg button').forEach(b=>b.onclick=()=>{ if(S.mode===b.dataset.mode) return; const from=progressShown;
+    S.mode=b.dataset.mode; S.running=false; S.accum=0; S.done=false; clearTimeout(endTimer); save(); flip(from); syncUI(); });
+
+  // Tocar el tiempo (detenido, cuenta regresiva) → escribirlo: «5», «2:30», «1:00:00».
+  timeEl.addEventListener('click', ()=>{
+    if(S.mode!=='down'||S.running||S.done) return;
+    const inp=document.createElement('input'); inp.className='cmt-input'; inp.value=fmt(S.duration,false); inp.inputMode='numeric'; inp.setAttribute('aria-label','Duración (minutos o mm:ss)');
+    timeEl.replaceWith(inp); inp.focus(); inp.select();
+    let closed=false; const close=ok=>{ if(closed) return; closed=true;
+      if(ok){ const parts=inp.value.trim().split(/[:.,\s]+/).map(Number); if(parts.length && parts.every(n=>Number.isFinite(n)&&n>=0)){
+        let ms=0; if(parts.length===1) ms=parts[0]*60000; else if(parts.length===2) ms=(parts[0]*60+parts[1])*1000; else ms=((parts[0]*60+parts[1])*60+parts[2])*1000;
+        if(ms>0){ inp.replaceWith(timeEl); setDuration(ms); return; } } }
+      inp.replaceWith(timeEl); syncUI(); };
+    inp.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter') close(true); if(e.key==='Escape') close(false); });
+    inp.addEventListener('blur',()=>close(true));
+  });
+
+  /* ── Abrir / cerrar / compacto ── */
+  function setOpen(on){ S.open=on; panel.hidden=!on; if(on){ placePanel(); } save(); syncUI(); }
+  btn.onclick=()=>setOpen(!S.open);
+  document.getElementById('cmt-close').onclick=()=>setOpen(false);
+  document.getElementById('cmt-compact').onclick=()=>{ S.compact=true; save(); syncUI(); placePanel(); };
+  document.getElementById('cmt-expand').onclick=()=>{ S.compact=false; save(); syncUI(); placePanel(); };
+
+  /* ── Arrastrar (desde la cabecera, o desde cualquier parte vacía en modo compacto) ── */
+  function placePanel(){ if(!S.pos) return; const sw=stage.clientWidth, sh=stage.clientHeight, pw=panel.offsetWidth, ph=panel.offsetHeight;
+    const x=Math.max(6, Math.min(sw-pw-6, S.pos.x)), y=Math.max(6, Math.min(sh-ph-6, S.pos.y)); panel.style.left=x+'px'; panel.style.top=y+'px'; panel.style.right='auto'; }
+  panel.addEventListener('pointerdown', e=>{
+    if(e.target.closest('button,input')) return;
+    const fromHead=e.target.closest('#cmt-head') || (S.compact && e.target.closest('#cmt-body')); if(!fromHead) return;
+    const r=panel.getBoundingClientRect(), sr=stage.getBoundingClientRect(), ox=e.clientX-r.left, oy=e.clientY-r.top;
+    try{ panel.setPointerCapture(e.pointerId); }catch(_){} panel.classList.add('dragging'); e.preventDefault();
+    const mv=ev=>{ S.pos={x:ev.clientX-sr.left-ox, y:ev.clientY-sr.top-oy}; placePanel(); };
+    const up=()=>{ panel.classList.remove('dragging'); panel.removeEventListener('pointermove',mv); panel.removeEventListener('pointerup',up); panel.removeEventListener('pointercancel',up); save(); };
+    panel.addEventListener('pointermove',mv); panel.addEventListener('pointerup',up); panel.addEventListener('pointercancel',up);
+  });
+  // Que nada del panel llegue a la pizarra (ni atajos de teclado mientras se escribe el tiempo).
+  for(const ev of ['pointerdown','wheel','dblclick']) panel.addEventListener(ev, e=>e.stopPropagation());
+  window.addEventListener('resize', ()=>{ if(S.open) placePanel(); });
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && S.open){ lastFrame=0; frame(true); } });
+
+  // Restaurar (si quedó corriendo al recargar, sigue con el tiempo real; si terminó mientras tanto, avisa).
+  if(S.running && S.mode==='down' && remaining()<=0){ S.running=false; S.accum=S.duration; S.done=true; }
+  panel.hidden=!S.open; progressShown=progress(); armEnd(); syncUI(); if(S.open) placePanel();
 })();
 </script>
 </body>
