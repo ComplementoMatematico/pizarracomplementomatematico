@@ -344,6 +344,11 @@
   /* Límites */
   #gp-lres{ font-family:'Cambria Math','Times New Roman',serif; color:#f6f8fc; font-size:13px; line-height:1.6; background:rgba(217,169,43,.07); border:1px solid rgba(217,169,43,.28); border-radius:8px; padding:4px 11px 9px; display:none; margin-top:6px; }
   #gp-lres.show{ display:block; }
+  #gp-dres{ font-family:'Cambria Math','Times New Roman',serif; color:#f6f8fc; font-size:13px; line-height:1.6; background:rgba(31,138,84,.08); border:1px solid rgba(46,180,110,.3); border-radius:8px; padding:4px 11px 9px; display:none; margin:6px 0; }
+  #gp-dres.show{ display:block; }
+  #gp-dres h5{ margin:9px 0 3px; padding-top:7px; border-top:1px solid rgba(255,255,255,.09); font:600 10.5px Inter,system-ui,sans-serif; letter-spacing:1px; text-transform:uppercase; color:#f0c95a; }
+  #gp-dres h5:first-child{ border-top:none; margin-top:2px; }
+  #gp-dres .ap-line{ margin:4px 0; } #gp-dres .ap-note{ margin:2px 0 2px 10px; font-size:12px; color:#c3cfe3; } #gp-dres .ap-ok{ margin:4px 0; font-size:12.5px; color:#8fe0b4; }
   #gp-lres h5{ margin:9px 0 3px; padding-top:7px; border-top:1px solid rgba(255,255,255,.09); font:600 10.5px Inter,system-ui,sans-serif; letter-spacing:1px; text-transform:uppercase; color:#f0c95a; }
   #gp-lres h5:first-child{ border-top:none; margin-top:2px; }
   #gp-lres .ap-line{ margin:4px 0; } #gp-lres .ap-note{ margin:2px 0 2px 10px; font-size:12px; color:#c3cfe3; } #gp-lres .ap-ok{ margin:4px 0; font-size:12.5px; color:#8fe0b4; }
@@ -5816,6 +5821,7 @@ canvas#board{touch-action:none;}
     drawSpecialPts(c,w,h);
     drawFunOverlay(c,w,h,!!opts.forExport);
     drawLimOverlay(c,w,h);
+    if(typeof drawDerOverlay==='function') drawDerOverlay(c,w,h);
     if(gShowLabels) drawCurveLabels(c,w,h);
     if(!opts.forExport) drawNotable(c,w,h);
     for(const g of gfns){ const d=g.desc; if(!g.hidden&&d&&d.kind==='point') plotPoint(c,d,g.color); }
@@ -5837,7 +5843,7 @@ canvas#board{touch-action:none;}
       else if(d.kind==='param'||d.kind==='polar'){ for(let k=0;k<=40;k++){ const t=d.b-(d.b-d.a)*k/40*0.9; let p; try{ p=d.kind==='param'?[d.X(t,PARAMS),d.Y(t,PARAMS)]:(r=>[r*Math.cos(t),r*Math.sin(t)])(d.R(t,PARAMS)); }catch(_){ continue; } const sx=gx2sx(p[0]), sy=gy2sy(p[1]); if(sx>40&&sx<w-10&&sy>22&&sy<h-8){ put(nm,sx-6,sy-6,g.color); break; } } } });
     c.restore();
   }
-  function drawGraph(){ if(!gcanvas.width) return; const w=gW(), h=gH(); gctx.setTransform(GDPR,0,0,GDPR,0,0); paintGraph(gctx,w,h,{showNums:true}); updateValueTable(); updateEvalResults(); renderAnaPanel(); renderTrigPanel(); if(typeof renderFunPanel==='function') renderFunPanel(); if(typeof renderLimPanel==='function') renderLimPanel(); }
+  function drawGraph(){ if(!gcanvas.width) return; const w=gW(), h=gH(); gctx.setTransform(GDPR,0,0,GDPR,0,0); paintGraph(gctx,w,h,{showNums:true}); updateValueTable(); updateEvalResults(); renderAnaPanel(); renderTrigPanel(); if(typeof renderFunPanel==='function') renderFunPanel(); if(typeof renderLimPanel==='function') renderLimPanel(); if(typeof renderDerPanel==='function') renderDerPanel(); }
   // Evaluador seguro de y = f(x) respetando condición/dominio.
   function explicitEval(d){ return x=>{ if(d.cond){ try{ if(!d.cond(x,0,PARAMS)) return NaN; }catch(_){ return NaN; } } let y; try{ y=d.f(x,PARAMS); }catch(_){ y=NaN; } return typeof y==='number'?y:NaN; }; }
   // ¿Hay un salto (asíntota, escalón) entre xa y xb? Se estrecha el intervalo por bisección:
@@ -6784,6 +6790,196 @@ canvas#board{touch-action:none;}
     const step=now=>{ if(!limT.anim) return; const u=((now-t0)/4200)%1.25; limT.sp=Math.min(100,u*100); C('gp-lsp').value=limT.sp; drawGraph(); limRAF=requestAnimationFrame(step); }; limRAF=requestAnimationFrame(step); };
   C('gp-lins').onclick=()=>{ if(!limT.on){ toast('Activa primero la herramienta'); return; } const R=limGet(); if(R.err){ toast(R.err); return; } addImageFromSrc(apDocImage(limTheory(R),'Límites y continuidad')); toast('Desarrollo insertado en la pizarra'); };
   limPanel.addEventListener('toggle',()=>{ if(limPanel.open){ refreshLimFn(); if(!limT.on){ limT.on=true; C('gp-lon').checked=true; } scheduleGraph(); } });
+  // ── Definición de derivada: la secante PQ tiende a la recta tangente cuando h → 0 ──
+  let der={on:false, fnIdx:'0', as:'1', a:1, h0:2, s:0, side:'r', tri:true, tan:true, trail:true, anim:false, flashT:0, key:'', res:null};
+  let derRAF=null, derTrail=[], derDrag=null;
+  const DER_COL={1:'#1f6feb', '-1':'#e67e22'}, DER_TAN='#1f8a54', DER_P='#d9a92b';
+  function derFnOf(){ const g=gfns[+der.fnIdx]; return (g&&!g.hidden&&g.desc&&g.desc.kind==='explicit')?g:null; }
+  // s ∈ [0,100] → h desde h₀ hasta h₀/10^3.3. Curva elegida para pasar más tiempo donde Q se ve
+  // separado de P (h grande) y luego «frenar» al acercarse a 0.
+  const DER_Q=1.8;
+  function derH(){ return der.h0*Math.pow(10,-3.3*Math.pow(der.s/100,DER_Q)); }
+  function derSofH(hh){ const q=Math.max(0,Math.min(1,-Math.log10(hh/der.h0)/3.3)); return 100*Math.pow(q,1/DER_Q); }
+  function derSides(){ return der.side==='b'? [1,-1] : [der.side==='l'?-1:1]; }
+  const derNum=(v,dg)=>!Number.isFinite(v)?'∄':String((Math.abs(v)<5e-13?0:v).toFixed(dg??4)).replace('-','−');
+  function derGet(){
+    const g=derFnOf(); if(!g) return {err:'Escribe una función y = f(x) (por ejemplo x^2) para usar la herramienta.'};
+    if(!Number.isFinite(der.a)) return {err:'Escribe el punto a: un número, π/4, √2…'};
+    const key=JSON.stringify([der.fnIdx,der.a,PARAMS,gfns.map(q=>[q.raw,q.dom,!!q.hidden])]);
+    if(der.key===key&&der.res) return der.res;
+    const F=explicitEval(g.desc), a=der.a, fa=F(a), R={g,F,a,fa,name:userFnName(g.raw)||'f'};
+    if(!Number.isFinite(fa)) R.err='f no está definida en x = '+anaFmtX(a)+': no hay punto P.';
+    else {
+      // pendientes laterales (h muy chico) y derivada central con extrapolación de Richardson
+      const e=1e-6*Math.max(1,Math.abs(a)), mr=(F(a+e)-fa)/e, ml=(fa-F(a-e))/e;
+      const D=k=>(F(a+k)-F(a-k))/(2*k), k=1e-3*Math.max(1,Math.abs(a)), dc=(4*D(k/2)-D(k))/3;
+      R.mr=mr; R.ml=ml;
+      R.ok=Number.isFinite(mr)&&Number.isFinite(ml)&&Math.abs(mr-ml)<=1e-3*Math.max(1,Math.abs(mr),Math.abs(ml))&&Math.abs(dc)<1e6;
+      R.vertical=!R.ok&&(Math.abs(mr)>1e5||Math.abs(ml)>1e5);
+      R.d=R.ok? (Number.isFinite(dc)?dc:(mr+ml)/2) : NaN;
+      if(R.ok){ const r=Math.round(R.d); if(Math.abs(R.d-r)<1e-7) R.d=r; }
+    }
+    der.key=key; der.res=R; return R; }
+  // Recta y = y0 + m(x − x0) a lo ancho de la vista
+  function derLine(c,w,x0,y0,m,col,lw,dash,alpha){ const X0=sx2gx(-10), X1=sx2gx(w+10);
+    c.save(); c.globalAlpha=alpha??1; c.strokeStyle=col; c.lineWidth=lw; c.setLineDash(dash||[]); c.lineCap='round';
+    c.beginPath(); c.moveTo(gx2sx(X0),gy2sy(y0+m*(X0-x0))); c.lineTo(gx2sx(X1),gy2sy(y0+m*(X1-x0))); c.stroke(); c.restore(); }
+  function drawDerOverlay(c,w,h){
+    if(!der.on) return; const R=derGet(); if(R.err) return;
+    const {F,a,fa}=R, hh=derH(), near=der.s/100, P={x:gx2sx(a), y:gy2sy(fa)}, oy=Math.max(10,Math.min(h-10,gy2sy(0)));
+    const now=performance.now(), flash=der.flashT? Math.max(0,1-(now-der.flashT)/1600) : 0;
+    c.save();
+    // rastro de secantes anteriores (abanico que se cierra sobre la tangente)
+    if(der.trail) derTrail.forEach((t,i)=>{ derLine(c,w,a,fa,t.m,DER_COL[t.sg],1.2,null,0.05+0.16*(i+1)/derTrail.length); });
+    // recta tangente: aparece a medida que h → 0 (al final se dibuja encima de la secante)
+    const drawTan=()=>{ if(!(der.tan&&R.ok)) return; const al=0.16+0.84*Math.pow(near,1.7), fin=near>=0.985;
+      if(fin||flash){ c.save(); c.shadowColor='rgba(31,138,84,.55)'; c.shadowBlur=8+16*flash; derLine(c,w,a,fa,R.d,DER_TAN,2.6+1.4*flash,null,1); c.restore(); }
+      else derLine(c,w,a,fa,R.d,DER_TAN,1.8+0.8*near,[9,7],al); };
+    const late=near>0.9; if(!late) drawTan();
+    if(der.tan&&R.vertical){ const sx=P.x; c.save(); c.globalAlpha=0.25+0.75*near; c.strokeStyle=DER_TAN; c.lineWidth=2; c.setLineDash([9,7]); c.beginPath(); c.moveTo(sx,0); c.lineTo(sx,h); c.stroke(); c.restore(); }
+    c.font="italic 14px 'Times New Roman',serif";
+    for(const sg of derSides()){
+      const col=DER_COL[sg], xq=a+sg*hh, yq=F(xq); if(!Number.isFinite(yq)) continue;
+      const m=(yq-fa)/(xq-a), Q={x:gx2sx(xq), y:gy2sy(yq)}, C2={x:Q.x, y:P.y};
+      // secante PQ
+      derLine(c,w,a,fa,m,col,2.4,null,0.95-(der.tan&&R.ok? 0.75*Math.max(0,(near-0.88)/0.12) : 0));
+      // triángulo del cociente incremental: h (horizontal) y Δy (vertical)
+      if(der.tri && Math.abs(Q.x-P.x)>3){
+        c.save(); c.fillStyle=hexA(col,.1); c.beginPath(); c.moveTo(P.x,P.y); c.lineTo(C2.x,C2.y); c.lineTo(Q.x,Q.y); c.closePath(); c.fill();
+        c.strokeStyle=col; c.lineWidth=1.8; c.beginPath(); c.moveTo(P.x,P.y); c.lineTo(C2.x,C2.y); c.lineTo(Q.x,Q.y); c.stroke();
+        if(Math.abs(Q.x-P.x)>10&&Math.abs(Q.y-P.y)>10){ const k=7*Math.sign(P.x-Q.x), v=7*Math.sign(Q.y-P.y); c.lineWidth=1; c.beginPath(); c.moveTo(C2.x+k,C2.y); c.lineTo(C2.x+k,C2.y+v); c.lineTo(C2.x,C2.y+v); c.stroke(); }
+        c.fillStyle=col; c.font="600 12px Inter,system-ui,sans-serif";
+        if(Math.abs(Q.x-P.x)>44){ c.textAlign='center'; c.textBaseline=Q.y<P.y?'top':'bottom'; haloText(c,(sg<0?'h = −':'h = ')+derNum(hh,hh<0.01?4:3),(P.x+Q.x)/2,P.y+(Q.y<P.y?6:-6)); }
+        if(Math.abs(Q.y-P.y)>28){ c.textAlign=sg>0?'left':'right'; c.textBaseline='middle'; haloText(c,'Δy = '+derNum(yq-fa,3),Q.x+(sg>0?8:-8),(P.y+Q.y)/2); }
+        c.restore(); }
+      // guías a los ejes: a y a ± h
+      c.save(); c.setLineDash([3,4]); c.strokeStyle=hexA(col,.55); c.lineWidth=1.1; c.beginPath(); c.moveTo(Q.x,Q.y); c.lineTo(Q.x,oy); c.stroke(); c.restore();
+      if(Math.abs(Q.x-P.x)>26){ c.fillStyle=col; c.font="italic 14px 'Times New Roman',serif"; c.textAlign='center'; c.textBaseline='top'; haloText(c,sg>0?'a + h':'a − h',Q.x,oy+6); }
+      // punto Q
+      c.beginPath(); c.arc(Q.x,Q.y,6,0,6.2832); c.fillStyle=col; c.fill(); c.lineWidth=2; c.strokeStyle='#fff'; c.stroke();
+      if(Math.hypot(Q.x-P.x,Q.y-P.y)>22){ c.fillStyle=col; c.font="italic 600 15px 'Times New Roman',serif"; c.textAlign=sg>0?'left':'right'; c.textBaseline='bottom'; haloText(c,sg>0?'Q':'Q′',Q.x+(sg>0?8:-8),Q.y-6); }
+      if(der.anim&&(!derTrail.length||Math.abs(derTrail[derTrail.length-1].h-hh)>hh*0.25)){ derTrail.push({m,sg,h:hh}); if(derTrail.length>16) derTrail.shift(); }
+    }
+    if(late) drawTan();
+    // guía y etiqueta de a
+    c.save(); c.setLineDash([3,4]); c.strokeStyle='rgba(20,35,70,.5)'; c.lineWidth=1.1; c.beginPath(); c.moveTo(P.x,P.y); c.lineTo(P.x,oy); c.stroke(); c.restore();
+    c.fillStyle='#16233a'; c.font="italic 600 14px 'Times New Roman',serif"; c.textAlign='center'; c.textBaseline='top'; haloText(c,'a',P.x,oy+6);
+    // punto P (dorado, con pulso al llegar)
+    if(flash){ c.beginPath(); c.arc(P.x,P.y,8+18*(1-flash),0,6.2832); c.strokeStyle='rgba(217,169,43,'+(0.6*flash)+')'; c.lineWidth=3; c.stroke(); }
+    c.beginPath(); c.arc(P.x,P.y,7,0,6.2832); c.fillStyle=DER_P; c.fill(); c.lineWidth=2.2; c.strokeStyle='#142449'; c.stroke();
+    c.fillStyle='#142449'; c.font="italic 600 15px 'Times New Roman',serif"; c.textAlign='right'; c.textBaseline='bottom'; haloText(c,'P',P.x-9,P.y-7);
+    derHUD(c,w,R,hh,near);
+    c.restore(); }
+  // Recuadro con el cociente incremental y su valor en vivo
+  function derHUD(c,w,R,hh,near){
+    const sides=derSides(), x=10, y=10, lh=21, rows=sides.length, W=Math.min(w-20,300), H=48+rows*lh+24;
+    c.save(); c.shadowColor='rgba(15,25,50,.18)'; c.shadowBlur=10; c.shadowOffsetY=2; c.fillStyle='rgba(255,255,255,.94)';
+    c.beginPath(); c.roundRect? c.roundRect(x,y,W,H,10) : c.rect(x,y,W,H); c.fill(); c.restore();
+    c.save(); c.strokeStyle='rgba(217,169,43,.75)'; c.lineWidth=1.2; c.beginPath(); c.roundRect? c.roundRect(x+.5,y+.5,W-1,H-1,10) : c.rect(x+.5,y+.5,W-1,H-1); c.stroke();
+    // m_sec = [f(a+h) − f(a)] / h
+    const nm=R.name, fx=x+12, cy=y+26; c.fillStyle='#16233a'; c.textBaseline='middle'; c.textAlign='left';
+    c.font="italic 16px 'Times New Roman',serif"; c.fillText('m',fx,cy); const mw=c.measureText('m').width;
+    c.font="italic 11px 'Times New Roman',serif"; c.fillText('sec',fx+mw+1,cy+5); const sw=c.measureText('sec').width;
+    c.font="16px 'Times New Roman',serif"; const eqx=fx+mw+sw+6; c.fillText('=',eqx,cy);
+    const num=nm+'(a + h) − '+nm+'(a)'; c.font="italic 15px 'Times New Roman',serif"; const nw=c.measureText(num).width, fx0=eqx+18;
+    c.textAlign='center'; c.fillText(num,fx0+nw/2,cy-10); c.fillText('h',fx0+nw/2,cy+11);
+    c.strokeStyle='#16233a'; c.lineWidth=1.1; c.beginPath(); c.moveTo(fx0-2,cy+1); c.lineTo(fx0+nw+2,cy+1); c.stroke();
+    // valores en vivo por lado
+    c.textAlign='left'; c.font="600 12.5px Inter,system-ui,sans-serif";
+    sides.forEach((sg,i)=>{ const xq=R.a+sg*hh, yq=R.F(xq), m=(yq-R.fa)/(xq-R.a); c.fillStyle=DER_COL[sg];
+      c.fillText((sg<0?'h = −':'h = ')+derNum(hh,hh<0.01?5:4)+'   ⇒   m = '+derNum(m,4),fx,y+52+i*lh); });
+    // conclusión (se enciende al acercarse h a 0)
+    const ly=y+52+rows*lh+2; c.font="600 13px Inter,system-ui,sans-serif";
+    if(R.ok){ c.globalAlpha=0.35+0.65*Math.pow(near,1.5); c.fillStyle=DER_TAN; c.fillText('h → 0   ⇒   '+nm+'′('+anaFmtX(R.a)+') = '+anaFmt(R.d),fx,ly); }
+    else { c.fillStyle='#c0392b'; c.fillText(R.vertical?'Tangente vertical: '+nm+'′(a) no existe':'m⁻ ≠ m⁺   ⇒   '+nm+' no es derivable en a',fx,ly); }
+    c.restore(); }
+  // ── Desarrollo teórico para el panel y la pizarra ──
+  function derTheory(R){
+    const doc=[], T=(...t)=>doc.push({p:t}), NOTE=(...t)=>doc.push({note:t}), OK=(...t)=>doc.push({ok:t}), H=h=>doc.push({h}), B=b=>({b});
+    if(R.err){ doc.push({note:[R.err]}); return doc; }
+    const nm=R.name, a=anaFmtX(R.a);
+    H('Definición');
+    T(nm+'′(a) = ',B('lím'),' (h → 0)  [ '+nm+'(a + h) − '+nm+'(a) ] / h');
+    NOTE('La recta secante pasa por P(a, '+nm+'(a)) y Q(a + h, '+nm+'(a + h)); su pendiente es el cociente incremental Δy / h. Cuando h → 0, Q se acerca a P sobre la curva y la secante tiende a la recta tangente en P.');
+    H('En a = '+a);
+    T('P = ('+a+', '+anaFmt(R.fa)+')');
+    const rows=[]; for(const k of [0,1,2,3,4]){ const hh=Math.pow(10,-k), mp=(R.F(R.a+hh)-R.fa)/hh, mm=(R.F(R.a-hh)-R.fa)/(-hh); rows.push([k?'10'+toSup('-'+k):'1', derNum(mp,6), derNum(mm,6)]); }
+    doc.push({tbl:{head:['h','m (h > 0)','m (h < 0)'],rows}});
+    if(R.ok){ const n=R.fa-R.d*R.a;
+      OK('✓ Las pendientes de las secantes se acercan a un mismo valor ⇒ ',nm+'′('+a+') = '+anaFmt(R.d));
+      T('Recta tangente en P: ',B('y = '+aTxt(simp(AS.add(AS.mul(AS.num(R.d),AS.v('x')),AS.num(n)))).replace(/-/g,'−')));
+      NOTE('Forma punto-pendiente: y − '+anaFmt(R.fa)+' = '+anaFmt(R.d)+' (x − '+a+').'); }
+    else if(R.vertical) T('✗ ',B('No es derivable en x = '+a),': las secantes se vuelven verticales (pendiente infinita); la tangente es la recta x = '+a+'.');
+    else T('✗ ',B('No es derivable en x = '+a),': las pendientes laterales no coinciden (m⁻ → '+derNum(R.ml,4)+', m⁺ → '+derNum(R.mr,4)+'). La curva tiene un «pico» en P.');
+    return doc; }
+  const derPanel=document.createElement('details'); derPanel.className='gp-help gp-toolpanel';
+  derPanel.innerHTML='<summary>Definición de derivada · secante → tangente</summary>'
+    +'<div class="gp-tool"><label class="gp-chk"><input type="checkbox" id="gp-don"> <b>activar</b></label> en <select id="gp-dfn"></select></div>'
+    +'<div class="gp-tool">punto a = <input type="text" class="ap-num" id="gp-da" value="1" spellcheck="false" autocomplete="off"><span class="ap-chips"><button type="button" data-da="0">0</button><button type="button" data-da="1">1</button><button type="button" data-da="-1">−1</button><button type="button" data-da="2">2</button><button type="button" data-da="π/4">π/4</button></span></div>'
+    +'<div class="gp-tool">h inicial <input type="number" id="gp-dh0" value="2" min="0.05" max="50" step="0.5"> Q se acerca <select id="gp-dside"><option value="r">por la derecha (h &gt; 0)</option><option value="l">por la izquierda (h &lt; 0)</option><option value="b">por ambos lados</option></select></div>'
+    +'<div class="gp-tool"><label for="gp-ds">h → 0</label><input type="range" id="gp-ds" min="0" max="100" step="0.1" value="0"><button type="button" class="gp-mini" id="gp-danim">▶ animar h → 0</button></div>'
+    +'<div class="gp-tool"><label class="gp-chk"><input type="checkbox" id="gp-dtri" checked> triángulo h · Δy</label><label class="gp-chk"><input type="checkbox" id="gp-dtan" checked> recta tangente</label><label class="gp-chk"><input type="checkbox" id="gp-dtrail" checked> rastro de secantes</label></div>'
+    +'<p class="gp-tip2">Arrastra <b>P</b> sobre la curva para cambiar a, y <b>Q</b> para cambiar h. Dorado: P(a, f(a)) · azul: Q(a + h, f(a + h)) · naranjo: Q′(a − h, f(a − h)) · verde: recta tangente.</p>'
+    +'<div id="gp-dres"></div>'
+    +'<div class="gp-tool"><button type="button" class="gp-mini gp-insert" id="gp-dins">insertar desarrollo en la pizarra</button></div>';
+  document.querySelector('.gp-controls').append(derPanel);
+  function refreshDerFn(){ const s=C('gp-dfn'); if(!s) return; s.innerHTML=fnOptions(false); if(!derFnOf()){ const idx=gfns.findIndex(g=>!g.hidden&&g.desc?.kind==='explicit'); der.fnIdx=String(idx<0?0:idx); } s.value=String(der.fnIdx); }
+  function setDerRes(html){ const el=C('gp-dres'); if(!el) return; if(el._h!==html){ el.innerHTML=html; el._h=html; } el.classList.toggle('show',!!html); }
+  function renderDerPanel(){ if(!der.on){ setDerRes(''); return; } setDerRes(apDocHTML(derTheory(derGet()))); }
+  // Encuadre de la construcción: P y Q(a ± h₀) ocupan buena parte de la gráfica para que el triángulo se lea bien.
+  function derFocus(){ const R=derGet(); if(R.err) return; const w=gW(), h=gH(); if(!w||!h) return;
+    const xs=[R.a], ys=[R.fa]; for(const sg of derSides()){ const x=R.a+sg*der.h0, y=R.F(x); xs.push(x); if(Number.isFinite(y)) ys.push(y); }
+    const x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
+    const ppu=Math.max(6,Math.min(400, Math.min(w*0.5/Math.max(x1-x0,1e-6), h*0.5/Math.max(y1-y0,(x1-x0)*0.4,1e-6))));
+    gview.ppu=ppu; gview.cx=(x0+x1)/2; gview.cy=(y0+y1)/2 - 0.04*h/ppu; }
+  function derStop(){ der.anim=false; if(derRAF){ cancelAnimationFrame(derRAF); derRAF=null; } const b=C('gp-danim'); if(b) b.textContent='▶ animar h → 0'; }
+  function derSetS(v){ der.s=Math.max(0,Math.min(100,v)); const r=C('gp-ds'); if(r) r.value=der.s; }
+  C('gp-don').onchange=e=>{ der.on=e.target.checked; if(der.on){ refreshDerFn(); derFocus(); } else derStop(); scheduleGraph(); };
+  C('gp-dfn').onchange=e=>{ der.fnIdx=e.target.value; derTrail=[]; derFocus(); scheduleGraph(); };
+  C('gp-da').oninput=e=>{ const v=evalExprVal(e.target.value); const ok=Number.isFinite(v); e.target.classList.toggle('err',!ok); if(ok){ der.a=v; der.as=e.target.value; derTrail=[]; scheduleGraph(); } };
+  C('gp-da').onchange=()=>{ derFocus(); scheduleGraph(); };
+  derPanel.querySelectorAll('[data-da]').forEach(b=>b.onclick=()=>{ C('gp-da').value=b.dataset.da; C('gp-da').dispatchEvent(new Event('input')); derFocus(); scheduleGraph(); });
+  C('gp-dh0').oninput=e=>{ const v=+e.target.value; if(v>0&&Number.isFinite(v)){ der.h0=v; derTrail=[]; scheduleGraph(); } };
+  C('gp-dh0').onchange=()=>{ derFocus(); scheduleGraph(); };
+  C('gp-dside').onchange=e=>{ der.side=e.target.value; derTrail=[]; derFocus(); scheduleGraph(); };
+  C('gp-ds').oninput=e=>{ derStop(); der.s=+e.target.value; scheduleGraph(); };
+  C('gp-dtri').onchange=e=>{ der.tri=e.target.checked; scheduleGraph(); };
+  C('gp-dtan').onchange=e=>{ der.tan=e.target.checked; scheduleGraph(); };
+  C('gp-dtrail').onchange=e=>{ der.trail=e.target.checked; scheduleGraph(); };
+  // Animación: h baja de h₀ hacia 0 con un ritmo suave; al llegar, la tangente se ilumina.
+  C('gp-danim').onclick=()=>{
+    if(der.anim){ derStop(); return; }
+    if(!der.on){ der.on=true; C('gp-don').checked=true; refreshDerFn(); derFocus(); }
+    const R=derGet(); if(R.err){ toast(R.err); return; }
+    if(der.s>=99.5) derSetS(0);
+    der.anim=true; derTrail=[]; C('gp-danim').textContent='⏸ pausar';
+    // ~70 % del tiempo transcurre mientras Q todavía se ve separado de P; el resto, «frenando» hacia 0.
+    const s0=der.s, dur=7000*(1-s0/100)+400, t0=performance.now(), ease=u=>Math.pow(u,1.25);
+    const step=now=>{ if(!der.anim) return; const u=Math.min(1,(now-t0)/dur); derSetS(s0+(100-s0)*ease(u)); drawGraph();
+      if(u<1){ derRAF=requestAnimationFrame(step); return; }
+      derStop(); der.flashT=performance.now();
+      const glow=t=>{ drawGraph(); if(t-der.flashT<1600) derRAF=requestAnimationFrame(glow); else { der.flashT=0; derRAF=null; drawGraph(); } };
+      derRAF=requestAnimationFrame(glow); };
+    derRAF=requestAnimationFrame(step); };
+  C('gp-dins').onclick=()=>{ if(!der.on){ toast('Activa primero la herramienta'); return; } const R=derGet(); if(R.err){ toast(R.err); return; } addImageFromSrc(apDocImage(derTheory(R),'Definición de derivada')); toast('Desarrollo insertado en la pizarra'); };
+  derPanel.addEventListener('toggle',()=>{ if(derPanel.open){ refreshDerFn(); if(!der.on){ der.on=true; C('gp-don').checked=true; derFocus(); } scheduleGraph(); } });
+  // Arrastrar P (cambia a) y Q (cambia h) directamente sobre la gráfica.
+  gcanvas.addEventListener('pointerdown',e=>{
+    if(!der.on||e.button>0||derDrag) return; const R=derGet(); if(R.err) return; const {x:mx,y:my}=gLocal(e), hit=e.pointerType==='mouse'?12:22;
+    let tgt=null, sg=1;
+    if(Math.hypot(mx-gx2sx(R.a),my-gy2sy(R.fa))<hit) tgt='P';
+    else for(const s of derSides()){ const xq=R.a+s*derH(), yq=R.F(xq); if(Number.isFinite(yq)&&Math.hypot(mx-gx2sx(xq),my-gy2sy(yq))<hit){ tgt='Q'; sg=s; break; } }
+    if(!tgt) return;
+    e.stopImmediatePropagation(); e.preventDefault(); derStop(); der.flashT=0; derTrail=[];
+    try{ gcanvas.setPointerCapture(e.pointerId); }catch(_){}
+    derDrag={id:e.pointerId,tgt,sg}; gcanvas.style.cursor='grabbing'; },true);
+  gcanvas.addEventListener('pointermove',e=>{
+    if(!derDrag||e.pointerId!==derDrag.id) return; e.stopImmediatePropagation(); const X=sx2gx(gLocal(e).x);
+    if(derDrag.tgt==='P'){ const q=niceStep(64)/20; der.a=+(Math.round(X/q)*q).toFixed(10); der.as=String(der.a); const i=C('gp-da'); if(i){ i.value=String(der.a).replace('-','−'); i.classList.remove('err'); } }
+    else { const d=Math.max(1e-9,(X-der.a)*derDrag.sg); if(d>der.h0){ der.h0=+d.toPrecision(3); C('gp-dh0').value=der.h0; } derSetS(derSofH(d)); }
+    scheduleGraph(); },true);
+  const derUp=e=>{ if(!derDrag||e.pointerId!==derDrag.id) return; e.stopImmediatePropagation(); derDrag=null; gcanvas.style.cursor=''; scheduleGraph(); };
+  gcanvas.addEventListener('pointerup',derUp,true); gcanvas.addEventListener('pointercancel',derUp,true);
   new ResizeObserver(()=>{if(graphReady&&gpanel.classList.contains('open'))gpResize();}).observe(gcanvas.parentElement);
 
   /* ══════ Toggle dedo (solo táctil): dibujar vs navegar ══════ */
