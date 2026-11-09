@@ -1149,7 +1149,14 @@ canvas#board{touch-action:none;}
   inkCanvas.id = 'ink-layer'; inkCanvas.setAttribute('aria-hidden','true');
   inkCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;display:block;';
   canvas.after(inkCanvas);
-  const inkCtx = inkCanvas.getContext('2d');
+  // desynchronized: el navegador muestra la tinta sin esperar al resto de la página (menos retraso con lápiz).
+  const inkCtx = inkCanvas.getContext('2d',{desynchronized:true});
+  // Capa de la «punta»: el último tramo del trazo + la predicción de hacia dónde va el lápiz. Se borra en cada evento.
+  const tipCanvas = document.createElement('canvas');
+  tipCanvas.setAttribute('aria-hidden','true'); tipCanvas.style.cssText = inkCanvas.style.cssText;
+  inkCanvas.after(tipCanvas);
+  const tipCtx = tipCanvas.getContext('2d',{desynchronized:true});
+  let tipBox = null;
   let inkSnapValid = false, inkDirty = false;
   let DPR    = Math.min(window.devicePixelRatio || 1, 2);
 
@@ -1250,6 +1257,9 @@ canvas#board{touch-action:none;}
     inkCanvas.style.left = rail+'px'; inkCanvas.style.top = R.t+'px';
     inkCanvas.width = canvas.width;     inkCanvas.height = canvas.height;
     inkCanvas.style.width = w+'px';     inkCanvas.style.height = h+'px';
+    tipCanvas.style.left = rail+'px'; tipCanvas.style.top = R.t+'px';
+    tipCanvas.width = canvas.width;     tipCanvas.height = canvas.height;
+    tipCanvas.style.width = w+'px';     tipCanvas.style.height = h+'px'; tipBox=null;
     inkSnapValid=false; inkDirty=false;
     clampCam(); render();
   }
@@ -1788,12 +1798,52 @@ canvas#board{touch-action:none;}
     current=cur;
     clearInkLayer(); inkSnapValid=true;
   }
-  function clearInkLayer(){ if(!inkDirty) return; inkCtx.setTransform(1,0,0,1,0,0); inkCtx.clearRect(0,0,inkCanvas.width,inkCanvas.height); inkDirty=false; }
+  function clearInkLayer(){ clearTip(); if(!inkDirty) return; inkCtx.setTransform(1,0,0,1,0,0); inkCtx.clearRect(0,0,inkCanvas.width,inkCanvas.height); inkDirty=false; }
+  function clearTip(){ if(!tipBox) return; tipCtx.setTransform(1,0,0,1,0,0); tipCtx.clearRect(tipBox[0],tipBox[1],tipBox[2]-tipBox[0],tipBox[3]-tipBox[1]); tipBox=null; }
+  // Recorte a la hoja (igual que render) + transformación de la cámara, para dibujar en una capa de tinta.
+  function inkSheetClip(c){ const left=cam.x*DPR, bw=pageW()*cam.scale*DPR; c.beginPath();
+    if(isBook()){ const r=bookRect(); c.rect(left, r.y*DPR, bw, r.h*DPR); } else c.rect(left,0,bw,c.canvas.height);
+    c.clip(); c.setTransform(cam.scale*DPR,0,0,cam.scale*DPR, cam.x*DPR, cam.y*DPR); }
+  /* ── Tinta de baja latencia (bolígrafo, fino y lápiz) ──
+     En vez de redibujar todo el trazo en cada cuadro, se dibuja SOLO el tramo nuevo, en el mismo
+     instante en que llega el evento del lápiz. La punta (último medio tramo) y la predicción del
+     navegador van en una capa aparte que se borra en cada evento, para que la tinta siga al lápiz. */
+  let incDrawn=0;
+  const incStyle=s=>!!s && !s.shape && s.tool!=='line' && (s.penStyle==='boligrafo'||s.penStyle==='fineliner'||s.penStyle==='pencil');
+  function inkSeg(c,s,i){   // tramo i (de pts[i-1] a pts[i]), igual que drawStroke
+    const pts=s.pts, a=pts[i-1], b=pts[i];
+    c.beginPath(); if(i===1) c.moveTo(a.x,a.y); else { const pa=pts[i-2]; c.moveTo((pa.x+a.x)/2,(pa.y+a.y)/2); }
+    c.quadraticCurveTo(a.x,a.y,(a.x+b.x)/2,(a.y+b.y)/2); c.stroke();
+    if(s.penStyle==='pencil'){ const r=Math.sin(i*12.9898)*43758.5453, off=((r-Math.floor(r))-0.5)*s.size*0.6;
+      const g=c.globalAlpha, lw=c.lineWidth; c.globalAlpha=0.15; c.lineWidth=Math.max(.4,s.size*0.5); c.beginPath(); c.moveTo(a.x+off,a.y+off*0.4); c.lineTo(b.x+off,b.y+off*0.4); c.stroke(); c.globalAlpha=g; c.lineWidth=lw; } }
+  function inkPen(c,s,i){ c.lineJoin='round'; c.lineCap='round'; c.strokeStyle=s.color; c.fillStyle=s.color;
+    if(s.penStyle==='pencil'){ const pts=s.pts, a=pts[Math.max(0,i-1)], b=pts[i]||a; c.globalAlpha=0.86; c.lineWidth=Math.max(.5, s.size*(0.82+0.18*(((a.p||1)+(b.p||1))/2))); }
+    else { c.globalAlpha=1; c.lineWidth=s.size; } }
+  function inkIncremental(pred){
+    const s=current; if(!s||!inkSnapValid) return; const pts=s.pts, n=pts.length;
+    // tramos ya «cerrados» (tienen un punto después): definitivos en la capa de tinta
+    if(n>=2 && incDrawn<n-1){ inkCtx.save(); inkSheetClip(inkCtx);
+      for(let i=Math.max(1,incDrawn+1); i<=n-1; i++){ inkPen(inkCtx,s,i); inkSeg(inkCtx,s,i); }
+      inkCtx.restore(); incDrawn=n-1; inkDirty=true; }
+    // punta: del último punto medio hasta el lápiz, más la predicción
+    clearTip(); const last=pts[n-1];
+    const tail=n>=2? [{x:(pts[n-2].x+last.x)/2,y:(pts[n-2].y+last.y)/2}, last] : [last];
+    if(pred&&pred.length&&s.penStyle!=='pencil') for(const q of pred) tail.push(q);
+    tipCtx.save(); inkSheetClip(tipCtx); inkPen(tipCtx,s,n-1);
+    if(tail.length===1){ tipCtx.beginPath(); tipCtx.arc(last.x,last.y,s.size/2,0,6.2832); tipCtx.fill(); }
+    else { tipCtx.beginPath(); tipCtx.moveTo(tail[0].x,tail[0].y); for(let i=1;i<tail.length;i++) tipCtx.lineTo(tail[i].x,tail[i].y); tipCtx.stroke(); }
+    tipCtx.restore();
+    // caja a borrar la próxima vez (en píxeles del lienzo)
+    let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity; for(const q of tail){ const X=(q.x*cam.scale+cam.x)*DPR, Y=(q.y*cam.scale+cam.y)*DPR; if(X<x0)x0=X; if(Y<y0)y0=Y; if(X>x1)x1=X; if(Y>y1)y1=Y; }
+    const m=(s.size*cam.scale+4)*DPR; tipBox=[Math.floor(x0-m),Math.floor(y0-m),Math.ceil(x1+m),Math.ceil(y1+m)]; }
+  // Puntos predichos por el navegador (solo para dibujar la punta; no se guardan).
+  function inkPredicted(e){ const pe=e.getPredictedEvents?.(); if(!pe||!pe.length) return null; const out=[];
+    for(const q of pe.slice(0,3)){ const {x,y}=localXY(q), w=screenToWorld(x,y); out.push({x:w.x,y:w.y}); } return out; }
   // Repintado rápido durante el trazo: solo el trazo en curso, en la capa de tinta
   // (recortado a la hoja, igual que render()).
   function fastInkRender(){
     if(!inkSnapValid){ render(); return; }
-    const w=inkCanvas.width, h=inkCanvas.height;
+    const w=inkCanvas.width, h=inkCanvas.height; clearTip();
     inkCtx.setTransform(1,0,0,1,0,0); inkCtx.clearRect(0,0,w,h);
     const left=cam.x*DPR, bw=pageW()*cam.scale*DPR;
     inkCtx.save(); inkCtx.beginPath();
@@ -1825,7 +1875,8 @@ canvas#board{touch-action:none;}
     const isMarker = tool==='marker';
     const pr=inkPressure(e); inkFilter=createInkFilter({x:wp.x,y:wp.y,p:pr,t:e.timeStamp},isMarker?0:inkSmoothing,cam.scale);
     current = { tool, color:ink, size: isMarker? sizes.marker : sizes.pen, alpha: isMarker?0.32:1, penStyle: isMarker?'marker':penStyle, pts:[{x:wp.x,y:wp.y,p:pr}] };
-    drawId=e.pointerId; drawRole='ink'; captureInkSnapshot(); fastInkRender();
+    drawId=e.pointerId; drawRole='ink'; captureInkSnapshot(); incDrawn=0; rawInk=false;
+    if(incStyle(current)) inkIncremental(null); else fastInkRender();
     inkConverted=false;
     if(tool==='pen' && inkToShape){ inkLastMovePos={x,y}; startInkHold(); }
   }
@@ -1853,7 +1904,7 @@ canvas#board{touch-action:none;}
       const sp=localXY(e);
       if(!inkLastMovePos || Math.hypot(sp.x-inkLastMovePos.x, sp.y-inkLastMovePos.y) >= INK_MOVE_TOL){ inkLastMovePos=sp; inkLastMoveT=performance.now(); }
     }
-    if(drawRole==='ink') requestInkRender();
+    if(drawRole==='ink'){ if(incStyle(current)&&!inkConverted) inkIncremental(inkPredicted(e)); else requestInkRender(); }
   }
   function snapAngle(a, b){
     const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy); if(len<1) return b;
@@ -1861,7 +1912,7 @@ canvas#board{touch-action:none;}
     return { x:a.x+Math.cos(ang)*len, y:a.y+Math.sin(ang)*len };
   }
   function endDraw(){
-    if(inkFrame){cancelAnimationFrame(inkFrame);inkFrame=0;} inkFilter=null; inkSnapValid=false; stopInkHold();
+    if(inkFrame){cancelAnimationFrame(inkFrame);inkFrame=0;} inkFilter=null; inkSnapValid=false; stopInkHold(); clearTip();
     if(drawRole==='shape' && current){
       const a=current.pts[0], b=current.pts[current.pts.length-1];
       if(Math.hypot(b.x-a.x,b.y-a.y)*cam.scale >= 4) strokes.push(current);   // descarta formas/líneas minúsculas
@@ -2458,10 +2509,16 @@ canvas#board{touch-action:none;}
     if(pinch && (e.pointerId===pinch.id1 || e.pointerId===pinch.id2)){ doPinch(); return; }
     if(e.pointerId===panId){ doPan(e); return; }
     if(tool==='polygon' && polyBuild && !pinch){ polyMove(e); return; }
-    if(e.pointerId===drawId){ if(imgAction) selectMove(e); else extendDraw(e); return; }
+    if(e.pointerId===drawId){ if(imgAction) selectMove(e); else if(rawInk&&drawRole==='ink'){ if(incStyle(current)&&!inkConverted) inkIncremental(inkPredicted(e)); } else extendDraw(e); return; }
     if(tool==='select' && drawId===null && !pinch && panId===null && e.pointerType==='mouse') updateSelectCursor(e);
   });
 
+  // pointerrawupdate (Chrome/Edge): los eventos del lápiz llegan apenas ocurren, sin esperar al cuadro de la pantalla.
+  // Si existe, la tinta se alimenta de ellos y pointermove solo actualiza la predicción de la punta.
+  let rawInk=false;
+  if('onpointerrawupdate' in window) canvas.addEventListener('pointerrawupdate', e=>{
+    if(e.pointerId!==drawId || drawRole!=='ink' || imgAction || imgCropMode) return;
+    rawInk=true; extendDraw(e); });
   // En tablets el navegador a veces pierde un «pointerup» (dedo que sale por el borde, notificación, gesto del sistema…)
   // y quedaba un dedo o lápiz «fantasma»: la pizarra creía que seguía apoyado y se quedaba pegada. Aquí se limpian.
   let penLastT=0;
